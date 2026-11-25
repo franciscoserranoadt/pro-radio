@@ -42,6 +42,7 @@ while (S.mem.length < 30) S.mem.push(null);
 S.mem = S.mem.slice(0, 30);
 Object.keys(S.set).forEach(function (k) { S.set[k] = pref(k, S.set[k]); });
 S.night = pref('night', 'auto');
+S.fx = pref('fx', 'ondas');
 
 /* ---------- Iconos ---------- */
 var P = {
@@ -172,6 +173,7 @@ function fit() {
   if (h < 600) { sc = H / 600; h = 600; left = (W - 1280 * sc) / 2; }
   var app = $('app');
   app.style.height = h + 'px';
+  app.classList.toggle('short', h < 690);
   app.style.transform = 'translate(' + left + 'px,0) scale(' + sc + ')';
 }
 window.addEventListener('resize', fit);
@@ -373,6 +375,7 @@ function liveInfo() {
 }
 function renderNow() {
   var st = S.now, li = liveInfo();
+  $('app').classList.toggle('playing', !!(st && S.playing));
   $('liveTag').className = 'live ' + li[1]; $('liveTxt').textContent = li[0];
   $('miniTag').parentNode.className = 'live ' + li[1];
   var mi = st ? memIndex(st.id) : -1;
@@ -539,6 +542,8 @@ function showPlace() { $('wxPlace').textContent = 'EXTERIOR' + (S.place ? ' · '
 
 /* ---------- Ajustes ---------- */
 function renderSettings() {
+  var fs = $('fxSeg').querySelectorAll('i');
+  for (var f = 0; f < fs.length; f++) fs[f].classList.toggle('on', fs[f].getAttribute('data-v') === S.fx);
   var ns = $('nightSeg').querySelectorAll('i');
   for (var q = 0; q < ns.length; q++) ns[q].classList.toggle('on', ns[q].getAttribute('data-v') === S.night);
   var sws = document.querySelectorAll('.sw[data-k]');
@@ -693,6 +698,11 @@ function act(el, long, ev) {
     case 'qgo': doSearch($('q').value); break;
     case 'sopt': { var o = sheetActs[+v]; closeSheet(); if (o) o.f(); break; }
     case 'sclose': closeSheet(); break;
+    case 'fx': {
+      var fv = ev && ev.target && ev.target.getAttribute ? ev.target.getAttribute('data-v') : null;
+      if (fv) { S.fx = fv; setPref('fx', fv); applyFx(); renderSettings(); }
+      break;
+    }
     case 'theme': S.theme = v; setPref('theme', v); applyTheme(); renderThemes(); toast('Tema: ' + THEMES[v].n); break;
     case 'savesong': saveSong(); break;
     case 'spotify': openSong(+v, 'sp'); break;
@@ -958,6 +968,21 @@ function renderThemes() {
   $('themeName').textContent = THEMES[S.theme].n;
 }
 
+
+/* ---------- Efectos al reproducir ---------- */
+function buildViz() {
+  var h = '';
+  for (var k = 0; k < 34; k++) {
+    var dur = (0.45 + Math.random() * 0.7).toFixed(2), del = (-Math.random() * 1.2).toFixed(2);
+    h += '<i style="animation-duration:' + dur + 's;animation-delay:' + del + 's"></i>';
+  }
+  $('viz').innerHTML = h;
+}
+function applyFx() {
+  var app = $('app');
+  ['none', 'ondas', 'aura', 'barras'].forEach(function (k) { app.classList.toggle('fx-' + k, S.fx === k); });
+}
+
 /* ---------- Llamadas desde la parte nativa ---------- */
 window.PR = {
   onState: function (s) {
@@ -992,12 +1017,12 @@ function init() {
   for (var k = 0; k < tabs.length; k++) { tabs[k].setAttribute('data-a', 'tab'); tabs[k].setAttribute('data-v', tabs[k].getAttribute('data-t')); }
   bind('bPlay', 'play'); bind('mPlay', 'play'); bind('bPrev', 'prev'); bind('mPrev', 'prev'); bind('bNext', 'next'); bind('mNext', 'next');
   bind('bFav', 'fav'); bind('seeAll', 'seeall'); bind('countryBtn', 'country');
-  bind('vDown', 'vdown'); bind('vUp', 'vup'); bind('volBar', 'volbar'); bind('micBtn', 'mic'); bind('qGo', 'qgo'); bind('bSong', 'savesong'); bind('nightSeg', 'night'); bind('updBtn', 'upd');
+  bind('vDown', 'vdown'); bind('vUp', 'vup'); bind('volBar', 'volbar'); bind('micBtn', 'mic'); bind('qGo', 'qgo'); bind('bSong', 'savesong'); bind('nightSeg', 'night'); bind('fxSeg', 'fx'); bind('updBtn', 'upd');
   if (A && A.version) { try { $('updBtn').textContent = '🔄 Buscar actualización (tienes la v' + A.version() + ')'; } catch (e) {} }
   var sws = document.querySelectorAll('.sw[data-k]');
   for (var j = 0; j < sws.length; j++) sws[j].setAttribute('data-a', 'sw');
   $('q').addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.keyCode === 13) doSearch(this.value); });
-  applyTheme(); renderThemes();
+  applyTheme(); renderThemes(); buildViz(); applyFx();
   $('sheet').addEventListener('click', function (e) { if (e.target === this) closeSheet(); });
 
   if (A && A.lastQueue) { try { S.queue = JSON.parse(A.lastQueue()) || []; } catch (e) {} }

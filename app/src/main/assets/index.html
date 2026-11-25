@@ -30,7 +30,7 @@
   <div class="main">
    <div class="card player">
     <div class="ptop">
-     <div class="art" id="art"></div>
+     <div class="artwrap"><div class="aura"></div><div class="ring2"></div><div class="ring2 r2"></div><div class="ring2 r3"></div><div class="art" id="art"></div></div>
      <div class="pinfo">
       <span class="live" id="liveTag"><i></i><span id="liveTxt">EN DIRECTO</span></span>
       <div class="st" id="stName">Elige una emisora</div>
@@ -43,6 +43,7 @@
       <div class="savesong" id="bSong">🎵 Guardar canción</div>
      </div>
     </div>
+    <div class="viz" id="viz"></div>
     <div class="ctrl">
      <div class="cb" id="bPrev"><i data-i="prev" data-s="40"></i></div>
      <div class="play" id="bPlay"></div>
@@ -126,6 +127,7 @@
     <div class="tg"><span>Reconectar si se corta la señal<small>Túneles y zonas sin cobertura</small></span><div class="sw" data-k="reconnect"></div></div>
     <div class="tg"><span>Clima y temperatura exterior<small>Por ubicación GPS · se actualiza cada 15 min</small></span><div class="sw" data-k="weather"></div></div>
     <div class="tg"><span>Tema de colores<small id="themeName">Neón</small></span><div class="themes" id="themes"></div></div>
+    <div class="tg"><span>Efecto al reproducir<small>Animación mientras suena la emisora</small></span><div class="seg" id="fxSeg"><i data-v="none">No</i><i data-v="ondas">Ondas</i><i data-v="aura">Aura</i><i data-v="barras">Barras</i></div></div>
     <div class="tg nob"><span>Modo noche<small>Oscurece la pantalla al anochecer</small></span><div class="seg" id="nightSeg"><i data-v="auto">Auto</i><i data-v="on">Siempre</i><i data-v="off">No</i></div></div>
     <div class="upd" id="updBtn">🔄 Buscar actualización</div>
     <div class="ver" id="ver">Pro Radio · catálogo Radio Browser · clima Open-Meteo</div>

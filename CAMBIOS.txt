@@ -1,1 +1,2 @@
-- Temas de colores: 8 estilos para elegir en Ajustes → Tema de colores
+- Efectos al reproducir: Ondas, Aura o Barras (Ajustes → Efecto al reproducir)
+- Inicio se ajusta mejor en pantallas bajas (móvil en horizontal)
