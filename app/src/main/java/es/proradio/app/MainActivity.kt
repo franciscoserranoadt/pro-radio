@@ -35,6 +35,8 @@ import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
 import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
 
 class MainActivity : Activity() {
 
@@ -125,6 +127,11 @@ class MainActivity : Activity() {
         controllerFuture = null
         stopLocation()
         super.onStop()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        js("PR.onResume && PR.onResume()")
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -405,6 +412,44 @@ class MainActivity : Activity() {
 
         @JavascriptInterface
         fun checkUpdate() = runOnUiThread { this@MainActivity.checkUpdate(true) }
+
+        /** Petición web para la sincronización (sin límites de seguridad del navegador). */
+        @JavascriptInterface
+        fun http(id: String, method: String, url: String, body: String?) {
+            Thread {
+                var ok = false
+                var code = 0
+                var text = ""
+                var loc = ""
+                try {
+                    val con = URL(url).openConnection() as HttpURLConnection
+                    con.requestMethod = method
+                    con.connectTimeout = 10_000
+                    con.readTimeout = 15_000
+                    con.useCaches = false
+                    con.setRequestProperty("Accept", "application/json")
+                    con.setRequestProperty("User-Agent", "ProRadio")
+                    if (body != null && method != "GET") {
+                        con.doOutput = true
+                        con.setRequestProperty(
+                            "Content-Type",
+                            if (url.contains("jsonblob")) "application/json" else "text/plain; charset=utf-8"
+                        )
+                        con.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
+                    }
+                    code = con.responseCode
+                    ok = code in 200..299
+                    loc = con.getHeaderField("Location") ?: ""
+                    val stream = if (ok) con.inputStream else con.errorStream
+                    text = stream?.bufferedReader()?.use { it.readText() } ?: ""
+                    con.disconnect()
+                } catch (e: Exception) {
+                    text = e.message ?: "error"
+                }
+                val o = JSONObject().put("id", id).put("ok", ok).put("code", code).put("text", text).put("loc", loc)
+                js("PR.onHttp($o)")
+            }.start()
+        }
 
         @JavascriptInterface
         fun lastQueue(): String = Store.queueJson(this@MainActivity)

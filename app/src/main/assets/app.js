@@ -284,16 +284,16 @@ function toggleFav(st) {
   var i = idxOf(S.favs, st.id);
   if (i >= 0) { S.favs.splice(i, 1); toast('Quitada de favoritas'); }
   else { S.favs.unshift(mini(st)); toast('Añadida a favoritas ♥'); }
-  LS.set('favs', S.favs);
+  LS.set('favs', S.favs); localChanged();
   if (S.chip === 'fav') { S.list = S.favs.slice(); renderList(); } else updateRowHearts();
   renderNow();
 }
 function saveMem(slot, st) {
-  S.mem[slot] = mini(st); LS.set('mem', S.mem);
+  S.mem[slot] = mini(st); LS.set('mem', S.mem); localChanged();
   toast('Guardada en la memoria ' + (slot + 1));
   renderNow();
 }
-function clearMem(slot) { S.mem[slot] = null; LS.set('mem', S.mem); toast('Memoria ' + (slot + 1) + ' vacía'); renderNow(); }
+function clearMem(slot) { S.mem[slot] = null; LS.set('mem', S.mem); localChanged(); toast('Memoria ' + (slot + 1) + ' vacía'); renderNow(); }
 function firstFreeMem() { for (var k = 0; k < 30; k++) if (!S.mem[k]) return k; return -1; }
 
 /* ---------- Pintado ---------- */
@@ -546,7 +546,7 @@ function sheet(title, opts) {
   $('sBtns').innerHTML = h;
   $('sheet').classList.add('show');
 }
-function closeSheet() { $('sheet').classList.remove('show'); }
+function closeSheet() { $('sheet').classList.remove('show', 'top'); var i = $('syIn'); if (i) i.blur(); }
 function slotLong(k) {
   var m = S.mem[k], opts = [];
   if (S.now) opts.push({ t: 'Guardar aquí «' + S.now.name + '»', c: 'pri', f: function () { saveMem(k, S.now); } });
@@ -639,7 +639,157 @@ function act(el, long, ev) {
     case 'qgo': doSearch($('q').value); break;
     case 'sopt': { var o = sheetActs[+v]; closeSheet(); if (o) o.f(); break; }
     case 'sclose': closeSheet(); break;
+    case 'synew': syncCreate(); break;
+    case 'syjoinsheet': joinSheet(); break;
+    case 'syjoin': syncJoin($('syIn') ? $('syIn').value : ''); break;
+    case 'synow': toast('Sincronizando…'); syncPull(); break;
+    case 'syoff': syncOff(); break;
     case 'upd': if (A && A.checkUpdate) A.checkUpdate(); else toast('Solo disponible en la app'); break;
+  }
+}
+
+/* ---------- Sincronización móvil ⇄ coche ----------
+   Las memorias y favoritas se guardan en jsonblob.com (gratis, sin cuenta).
+   Para vincular se usa un código de 8 letras que viaja por ntfy.sh (como en Pro Maps). */
+var BLOB = 'https://jsonblob.com/api/jsonBlob/';
+var NTFY = 'https://ntfy.sh/proradio-';
+var SY = LS.get('sync', null);
+var syncT = LS.get('syncT', 0), lastSync = 0, syncMsg = '', pushT = null, syncBusy = false;
+var httpN = 0, httpP = {};
+function http(method, url, body) {
+  return new Promise(function (res, rej) {
+    if (!A || !A.http) {
+      fetch(url, { method: method, body: body == null ? undefined : body, headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' } })
+        .then(function (r) { return r.text().then(function (t) { res({ ok: r.ok, code: r.status, text: t, loc: r.headers.get('Location') || '' }); }); })
+        .catch(rej);
+      return;
+    }
+    var id = 'h' + (++httpN);
+    httpP[id] = { res: res, rej: rej };
+    A.http(id, method, url, body == null ? null : body);
+    setTimeout(function () { if (httpP[id]) { delete httpP[id]; rej(new Error('tiempo agotado')); } }, 30000);
+  });
+}
+function fmtCode(c) { return c.slice(0, 4) + '-' + c.slice(4); }
+function newCode() {
+  var abc = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789', c = '';
+  for (var k = 0; k < 8; k++) c += abc.charAt(Math.floor(Math.random() * abc.length));
+  return c;
+}
+function hasData(mem, favs) { return (mem || []).some(function (x) { return !!x; }) || (favs || []).length > 0; }
+function syncData() { return { app: 'proradio', v: 1, t: syncT, mem: S.mem, favs: S.favs }; }
+function localChanged() {
+  syncT = Date.now(); LS.set('syncT', syncT);
+  if (!SY) return;
+  clearTimeout(pushT); pushT = setTimeout(syncPush, 1500);
+}
+function fixMem(m) { m = (m || []).slice(0, 30); while (m.length < 30) m.push(null); return m; }
+function applyRemote(d, msg) {
+  S.mem = fixMem(d.mem); S.favs = d.favs || [];
+  LS.set('mem', S.mem); LS.set('favs', S.favs);
+  syncT = d.t || Date.now(); LS.set('syncT', syncT);
+  if (S.chip === 'fav') { S.list = S.favs.slice(); renderList(); } else updateRowHearts();
+  renderNow();
+  if (msg) toast(msg);
+}
+var DEAD = 'El enlace ha caducado: desvincula y crea un código nuevo';
+function syncPush() {
+  if (!SY) return Promise.resolve();
+  return http('PUT', BLOB + SY.blob, JSON.stringify(syncData())).then(function (r) {
+    if (r.ok) { lastSync = Date.now(); syncMsg = ''; }
+    else syncMsg = r.code === 404 ? DEAD : 'No se pudo enviar (error ' + r.code + ')';
+    renderSync();
+  }).catch(function () { syncMsg = 'Sin conexión: se enviará más tarde'; renderSync(); });
+}
+function syncPull() {
+  if (!SY || syncBusy) return Promise.resolve();
+  syncBusy = true;
+  return http('GET', BLOB + SY.blob).then(function (r) {
+    syncBusy = false;
+    if (!r.ok) { syncMsg = r.code === 404 ? DEAD : 'Error ' + r.code; renderSync(); return; }
+    var d = null; try { d = JSON.parse(r.text); } catch (e) {}
+    if (d && d.app === 'proradio' && d.t > syncT) applyRemote(d, '📲 Memorias actualizadas desde el otro aparato');
+    else if (!d || d.t < syncT) syncPush();
+    lastSync = Date.now(); syncMsg = ''; renderSync();
+  }).catch(function () { syncBusy = false; syncMsg = 'Sin conexión'; renderSync(); });
+}
+/* Publica el enlace en ntfy para que el otro aparato pueda unirse con el código (dura 12 h). */
+function announce(force) {
+  if (!SY) return;
+  if (!force && Date.now() - LS.get('annT', 0) < 6 * 3600e3) return;
+  http('POST', NTFY + SY.code.toLowerCase(), SY.blob).then(function (r) { if (r.ok) LS.set('annT', Date.now()); }).catch(function () {});
+}
+function syncCreate() {
+  toast('Creando código…');
+  if (!syncT) { syncT = Date.now(); LS.set('syncT', syncT); }
+  http('POST', BLOB.slice(0, -1), JSON.stringify(syncData())).then(function (r) {
+    var m = /jsonBlob\/([A-Za-z0-9-]+)/.exec(r.loc || '');
+    if (!r.ok || !m) { toast('No se pudo crear el código. Inténtalo de nuevo.'); return; }
+    SY = { code: newCode(), blob: m[1] }; LS.set('sync', SY);
+    announce(true); lastSync = Date.now(); syncMsg = '';
+    renderSync();
+    toast('Código creado: ' + fmtCode(SY.code));
+  }).catch(function () { toast('Sin conexión. Inténtalo de nuevo.'); });
+}
+function syncJoin(raw) {
+  var code = (raw || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (code.length !== 8) { toast('El código tiene 8 letras o números'); return; }
+  closeSheet(); toast('Buscando el otro aparato…');
+  http('GET', NTFY + code.toLowerCase() + '/json?poll=1&since=12h').then(function (r) {
+    var blob = null;
+    (r.text || '').split('\n').forEach(function (line) {
+      try { var m = JSON.parse(line); if (m.event === 'message' && /^[A-Za-z0-9-]{10,}$/.test(m.message)) blob = m.message; } catch (e) {}
+    });
+    if (!blob) { toast('Código no encontrado. Abre Pro Radio en el otro aparato y vuelve a probar.'); return; }
+    return http('GET', BLOB + blob).then(function (r2) {
+      if (!r2.ok) { toast('No se pudo leer el otro aparato (error ' + r2.code + ')'); return; }
+      var d = null; try { d = JSON.parse(r2.text); } catch (e) {}
+      SY = { code: code, blob: blob }; LS.set('sync', SY); LS.set('annT', Date.now());
+      if (d && hasData(d.mem, d.favs)) {
+        // Se juntan: manda lo del otro aparato; los huecos libres se rellenan con lo de este.
+        var mem = fixMem(d.mem), local = S.mem;
+        for (var k = 0; k < 30; k++) if (!mem[k] && local[k] && idxOf(mem, local[k].id) < 0) mem[k] = local[k];
+        var favs = (d.favs || []).slice();
+        S.favs.forEach(function (f) { if (idxOf(favs, f.id) < 0) favs.push(f); });
+        applyRemote({ mem: mem, favs: favs, t: Date.now() }, '✅ Vinculado: memorias juntadas con el otro aparato');
+        syncPush();
+      } else {
+        localChanged(); syncPush();
+        toast('✅ Vinculado');
+      }
+      lastSync = Date.now(); renderSync();
+    });
+  }).catch(function () { toast('Sin conexión. Inténtalo de nuevo.'); });
+}
+function joinSheet() {
+  sheetActs = [];
+  $('sTitle').textContent = 'Escribe el código del otro aparato';
+  $('sBtns').innerHTML = '<input id="syIn" class="syin" maxlength="9" placeholder="K7PQ-M2XD" autocomplete="off" autocapitalize="characters">' +
+    '<div class="sopt pri" data-a="syjoin">Vincular</div><div class="sopt" data-a="sclose">Cancelar</div>';
+  $('sheet').classList.add('show', 'top');
+  setTimeout(function () { var i = $('syIn'); if (i) i.focus(); }, 200);
+}
+function syncOff() {
+  sheet('¿Desvincular este aparato?', [{ t: 'Sí, desvincular', c: 'dng', f: function () {
+    SY = null; LS.set('sync', null); renderSync(); toast('Desvinculado. Tus memorias se quedan en este aparato.');
+  } }]);
+}
+function ago(t) {
+  var s = Math.round((Date.now() - t) / 1000);
+  if (s < 60) return 'hace un momento';
+  if (s < 3600) return 'hace ' + Math.round(s / 60) + ' min';
+  return 'hace ' + Math.round(s / 3600) + ' h';
+}
+function renderSync() {
+  var b = $('syncBox'); if (!b) return;
+  if (!SY) {
+    b.innerHTML = '<div class="syh">📲 Sincronizar móvil y coche</div><div class="muted">Las memorias y favoritas serán iguales en los dos aparatos.</div>' +
+      '<div class="sybtns"><div class="sybtn pri" data-a="synew">Crear código</div><div class="sybtn" data-a="syjoinsheet">Tengo un código</div></div>';
+  } else {
+    b.innerHTML = '<div class="syh">📲 Vinculado · código <span class="code">' + fmtCode(SY.code) + '</span></div><div class="muted">' +
+      esc(syncMsg || (lastSync ? 'Sincronizado ' + ago(lastSync) : 'Sincronizando…')) +
+      ' · En el otro aparato: Ajustes → Tengo un código.</div>' +
+      '<div class="sybtns"><div class="sybtn" data-a="synow">🔄 Sincronizar ahora</div><div class="sybtn dng" data-a="syoff">Desvincular</div></div>';
   }
 }
 
@@ -661,6 +811,8 @@ window.PR = {
     $('keyOut').innerHTML = 'Detectado: <b style="color:#5cff9d">' + esc(KEYS[code] || name) + '</b> (código ' + code + ') ✓';
     if (code === 24 || code === 25) setTimeout(readVolume, 300);
   },
+  onHttp: function (o) { var p = httpP[o.id]; if (!p) return; delete httpP[o.id]; if (!o.ok && !o.code) p.rej(new Error(o.text)); else p.res(o); },
+  onResume: function () { syncPull(); },
   onVoice: function (text) { $('q').value = text; doSearch(text); },
   toast: toast
 };
@@ -700,6 +852,9 @@ function init() {
   clock(); setInterval(clock, 10000);
   setInterval(function () { lastWx = Date.now(); weather(); }, 15 * 60000);
   setTimeout(loadCountriesQuiet, 1500);
+  renderSync();
+  if (SY) { announce(false); setTimeout(syncPull, 1200); }
+  setInterval(function () { if (SY) syncPull(); if (S.tab === 'set') renderSync(); }, 60000);
 }
 function loadCountriesQuiet() {
   var cache = LS.get('countries', null);

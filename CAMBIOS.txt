@@ -1,2 +1,1 @@
-- Se actualiza sola: avisa cuando hay versión nueva (como Pro Maps)
-- Botón «Buscar actualización» en Ajustes
+- Sincronización de memorias y favoritas entre el móvil y la pantalla del coche (Ajustes → Sincronizar)
