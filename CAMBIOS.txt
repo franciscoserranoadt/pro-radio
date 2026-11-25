@@ -1,1 +1,2 @@
-- Arreglado: «Crear código» de sincronización ya funciona (ahora usa el mismo sistema que Pro Maps)
+- Nueva pestaña «Canciones»: guarda la canción que suena y búscala en Spotify o YouTube
+- Modo noche: la pantalla se oscurece sola al anochecer (Ajustes → Modo noche)

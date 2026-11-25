@@ -23,6 +23,8 @@ var S = {
   mem: LS.get('mem', []),
   favs: LS.get('favs', []),
   recent: LS.get('recent', []),
+  songs: LS.get('songs', []),
+  night: 'auto', sun: null, dimmed: false,
   cc: LS.get('cc', 'ES'),
   chip: 'top',
   query: '',
@@ -39,6 +41,7 @@ var S = {
 while (S.mem.length < 30) S.mem.push(null);
 S.mem = S.mem.slice(0, 30);
 Object.keys(S.set).forEach(function (k) { S.set[k] = pref(k, S.set[k]); });
+S.night = pref('night', 'auto');
 
 /* ---------- Iconos ---------- */
 var P = {
@@ -300,11 +303,12 @@ function firstFreeMem() { for (var k = 0; k < 30; k++) if (!S.mem[k]) return k; 
 function setTab(t) {
   if (t !== 'mem' && S.moving >= 0) S.moving = -1;
   S.tab = t;
-  ['home', 'mem', 'world', 'set'].forEach(function (x) { $('v-' + x).classList.toggle('show', x === t); });
+  ['home', 'mem', 'songs', 'world', 'set'].forEach(function (x) { $('v-' + x).classList.toggle('show', x === t); });
   var tabs = document.querySelectorAll('.tab');
   for (var k = 0; k < tabs.length; k++) tabs[k].classList.toggle('on', tabs[k].getAttribute('data-t') === t);
   if (t === 'world' && !S.countries) loadCountries();
   if (t === 'mem') readVolume();
+  if (t === 'songs') renderSongs();
 }
 function renderChips() {
   var h = '';
@@ -377,6 +381,7 @@ function renderNow() {
     $('art').innerHTML = (mi >= 0 ? '<span class="mem">M ' + (mi + 1) + '</span>' : '') + logo(st);
     $('stName').textContent = st.name;
     $('stSong').innerHTML = S.song ? ic('music', 16) + ' ' + esc(S.song) : '';
+    $('bSong').classList.toggle('show', !!S.song);
     $('stTags').textContent = st.tags || '';
     $('stPlace').textContent = flag(st.cc) + ' ' + [st.city, countryName(st.cc, st.cc)].filter(Boolean).join(' · ');
     var b = '';
@@ -390,7 +395,7 @@ function renderNow() {
   } else {
     $('art').innerHTML = '<span class="lg" style="background:' + GRADS[5] + '">' + ic('radio', 70, '#fff') + '</span>';
     $('stName').textContent = 'Elige una emisora';
-    $('stSong').textContent = ''; $('stTags').textContent = 'Toca una emisora de la lista o una memoria';
+    $('stSong').textContent = ''; $('bSong').classList.remove('show'); $('stTags').textContent = 'Toca una emisora de la lista o una memoria';
     $('stPlace').textContent = ''; $('stBadges').innerHTML = '';
     $('miniArt').innerHTML = ''; $('miniName').textContent = '—'; $('miniSong').textContent = '';
   }
@@ -503,7 +508,7 @@ function weather() {
   var l = S.loc;
   if (!l) return;
   var u = 'https://api.open-meteo.com/v1/forecast?latitude=' + l.lat.toFixed(3) + '&longitude=' + l.lon.toFixed(3) +
-    '&current=temperature_2m,weather_code,is_day&daily=temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=1';
+    '&current=temperature_2m,weather_code,is_day&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset&timezone=auto&forecast_days=1';
   fetch(u).then(function (r) { return r.json(); }).then(function (j) {
     var c = j.current || {}, d = j.daily || {};
     var w = wmo(c.weather_code || 0);
@@ -513,6 +518,10 @@ function weather() {
     $('wxT').textContent = Math.round(c.temperature_2m) + '°';
     var mx = d.temperature_2m_max ? Math.round(d.temperature_2m_max[0]) : '', mn = d.temperature_2m_min ? Math.round(d.temperature_2m_min[0]) : '';
     $('wxDesc').textContent = w[1] + (mx !== '' ? ' · ' + mx + '° / ' + mn + '°' : '');
+    if (d.sunrise && d.sunset) {
+      var sr = new Date(d.sunrise[0]).getTime(), ss = new Date(d.sunset[0]).getTime();
+      if (sr && ss) { S.sun = { rise: sr, set: ss }; LS.set('sun', S.sun); applyNight(); }
+    }
   }).catch(function () { $('wxDesc').textContent = 'Clima sin conexión'; });
   var key = l.lat.toFixed(2) + ',' + l.lon.toFixed(2);
   if (placeFor !== key) {
@@ -530,6 +539,8 @@ function showPlace() { $('wxPlace').textContent = 'EXTERIOR' + (S.place ? ' · '
 
 /* ---------- Ajustes ---------- */
 function renderSettings() {
+  var ns = $('nightSeg').querySelectorAll('i');
+  for (var q = 0; q < ns.length; q++) ns[q].classList.toggle('on', ns[q].getAttribute('data-v') === S.night);
   var sws = document.querySelectorAll('.sw[data-k]');
   for (var k = 0; k < sws.length; k++) sws[k].classList.toggle('on', S.set[sws[k].getAttribute('data-k')] === '1');
   weather();
@@ -682,6 +693,15 @@ function act(el, long, ev) {
     case 'qgo': doSearch($('q').value); break;
     case 'sopt': { var o = sheetActs[+v]; closeSheet(); if (o) o.f(); break; }
     case 'sclose': closeSheet(); break;
+    case 'savesong': saveSong(); break;
+    case 'spotify': openSong(+v, 'sp'); break;
+    case 'youtube': openSong(+v, 'yt'); break;
+    case 'delsong': S.songs.splice(+v, 1); LS.set('songs', S.songs); renderSongs(); break;
+    case 'night': {
+      var nv = ev && ev.target && ev.target.getAttribute ? ev.target.getAttribute('data-v') : null;
+      if (nv) { S.night = nv; setPref('night', nv); renderSettings(); applyNight(); }
+      break;
+    }
     case 'synew': syncCreate(); break;
     case 'syjoinsheet': joinSheet(); break;
     case 'syjoin': syncJoin($('syIn') ? $('syIn').value : ''); break;
@@ -848,6 +868,64 @@ function renderSync() {
   }
 }
 
+
+/* ---------- Canciones guardadas ---------- */
+function saveSong() {
+  if (!S.song) { toast('Esta emisora no envía el nombre de la canción'); return; }
+  if (S.songs.length && S.songs[0].song === S.song) { toast('Ya está guardada'); return; }
+  S.songs.unshift({ song: S.song, station: S.now ? S.now.name : '', cc: S.now ? S.now.cc : '', t: Date.now() });
+  S.songs = S.songs.slice(0, 200); LS.set('songs', S.songs);
+  toast('🎵 Guardada: ' + S.song);
+}
+function songQuery(x) { return x.song.replace(/\s*[\(\[].*?[\)\]]\s*/g, ' ').replace(/\s+-\s+/, ' ').trim(); }
+function openSong(k, where) {
+  var x = S.songs[k]; if (!x) return;
+  var q = encodeURIComponent(songQuery(x));
+  var url = where === 'sp' ? 'https://open.spotify.com/search/' + q : 'https://www.youtube.com/results?search_query=' + q;
+  if (A && A.openUrl) A.openUrl(url); else window.open(url, '_blank');
+}
+function fmtDate(t) {
+  var d = new Date(t), now = new Date();
+  var hm = ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
+  if (d.toDateString() === now.toDateString()) return 'hoy ' + hm;
+  return d.getDate() + '/' + (d.getMonth() + 1) + ' ' + hm;
+}
+function renderSongs() {
+  $('songCount').textContent = S.songs.length ? '· ' + S.songs.length : '';
+  if (!S.songs.length) {
+    $('songList').innerHTML = '<div class="msg"><b>Aún no hay canciones</b>Cuando suene algo que te guste, pulsa «🎵 Guardar canción» en Inicio.</div>';
+    return;
+  }
+  var h = '';
+  S.songs.forEach(function (x, k) {
+    h += '<div class="card srow"><span class="ico">🎵</span><div class="nm"><b>' + esc(x.song) + '</b><small>' +
+      flag(x.cc) + ' ' + esc(x.station) + ' · ' + fmtDate(x.t) + '</small></div>' +
+      '<span class="sbt sp1" data-a="spotify" data-v="' + k + '">Spotify</span>' +
+      '<span class="sbt yt" data-a="youtube" data-v="' + k + '">YouTube</span>' +
+      '<span class="sbt del" data-a="delsong" data-v="' + k + '">✕</span></div>';
+  });
+  $('songList').innerHTML = h;
+}
+
+/* ---------- Modo noche ---------- */
+S.sun = LS.get('sun', null);
+function isNightNow() {
+  var now = new Date(), h = now.getHours() + now.getMinutes() / 60;
+  if (S.sun) {
+    var r = new Date(S.sun.rise), st = new Date(S.sun.set);
+    var rh = r.getHours() + r.getMinutes() / 60, sh = st.getHours() + st.getMinutes() / 60;
+    return h < rh || h >= sh;
+  }
+  return h >= 21 || h < 7.5;
+}
+function applyNight() {
+  var on = S.night === 'on' || (S.night === 'auto' && isNightNow());
+  if (on === S.dimmed) return;
+  S.dimmed = on;
+  $('app').classList.toggle('night', on);
+  if (A && A.setDim) A.setDim(on);
+}
+
 /* ---------- Llamadas desde la parte nativa ---------- */
 window.PR = {
   onState: function (s) {
@@ -882,7 +960,7 @@ function init() {
   for (var k = 0; k < tabs.length; k++) { tabs[k].setAttribute('data-a', 'tab'); tabs[k].setAttribute('data-v', tabs[k].getAttribute('data-t')); }
   bind('bPlay', 'play'); bind('mPlay', 'play'); bind('bPrev', 'prev'); bind('mPrev', 'prev'); bind('bNext', 'next'); bind('mNext', 'next');
   bind('bFav', 'fav'); bind('seeAll', 'seeall'); bind('countryBtn', 'country');
-  bind('vDown', 'vdown'); bind('vUp', 'vup'); bind('volBar', 'volbar'); bind('micBtn', 'mic'); bind('qGo', 'qgo'); bind('updBtn', 'upd');
+  bind('vDown', 'vdown'); bind('vUp', 'vup'); bind('volBar', 'volbar'); bind('micBtn', 'mic'); bind('qGo', 'qgo'); bind('bSong', 'savesong'); bind('nightSeg', 'night'); bind('updBtn', 'upd');
   if (A && A.version) { try { $('updBtn').textContent = '🔄 Buscar actualización (tienes la v' + A.version() + ')'; } catch (e) {} }
   var sws = document.querySelectorAll('.sw[data-k]');
   for (var j = 0; j < sws.length; j++) sws[j].setAttribute('data-a', 'sw');
@@ -903,6 +981,7 @@ function init() {
   var clock = function () {
     var d = new Date();
     $('clock').textContent = ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
+    applyNight();
   };
   clock(); setInterval(clock, 10000);
   setInterval(function () { lastWx = Date.now(); weather(); }, 15 * 60000);

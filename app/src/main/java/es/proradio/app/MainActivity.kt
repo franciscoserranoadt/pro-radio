@@ -475,6 +475,24 @@ class MainActivity : Activity() {
             }
         }
 
+        /** Abre un enlace (Spotify, YouTube…) en la app que corresponda. */
+        @JavascriptInterface
+        fun openUrl(url: String) = runOnUiThread {
+            try {
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            } catch (_: Exception) {
+                toast("No hay ninguna app para abrir el enlace")
+            }
+        }
+
+        /** Modo noche: baja el brillo de la pantalla mientras Pro Radio está delante. */
+        @JavascriptInterface
+        fun setDim(on: Boolean) = runOnUiThread {
+            val lp = window.attributes
+            lp.screenBrightness = if (on) 0.3f else WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+            window.attributes = lp
+        }
+
         @JavascriptInterface
         fun lastQueue(): String = Store.queueJson(this@MainActivity)
 

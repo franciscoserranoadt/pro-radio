@@ -213,3 +213,20 @@ svg{flex-shrink:0}
 .slot.empty.target{border-style:dashed}
 .movetxt{color:#ffc65c;font-weight:600;font-size:14px}
 .movecancel{margin-left:14px;padding:8px 18px;border-radius:18px;background:rgba(255,255,255,.08);color:#fff;font-weight:600}
+
+/* canciones guardadas */
+.savesong{display:none;margin-top:10px;height:40px;padding:0 16px;border-radius:20px;background:rgba(62,231,255,.12);border:1.5px solid #3ee7ff;align-items:center;font-size:13px;font-weight:600;width:max-content}
+.savesong.show{display:inline-flex}
+.savesong:active{transform:scale(.96)}
+.songhead{display:flex;align-items:baseline;font-size:20px}
+.songhead .muted{margin-left:12px}
+.srow{display:flex;align-items:center;padding:0 16px;height:84px;border-radius:16px;margin-bottom:10px}
+.srow .ico{width:54px;height:54px;border-radius:12px;background:linear-gradient(135deg,#3ee7ff,#b04dff);display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;margin-right:16px}
+.srow .nm{flex:1;min-width:0}
+.sbt{height:52px;padding:0 18px;border-radius:14px;display:flex;align-items:center;font-weight:700;font-size:14px;margin-left:10px;flex-shrink:0}
+.sbt.sp1{background:#1db954;color:#06140b}
+.sbt.yt{background:#ff2d2d;color:#fff}
+.sbt.del{background:rgba(255,255,255,.07);color:#ff7a9c;padding:0 16px}
+.sbt:active{transform:scale(.95)}
+/* modo noche */
+#app.night{filter:brightness(.68)}
