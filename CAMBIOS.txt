@@ -1,1 +1,1 @@
-- Arreglado: la pestaña Países salía vacía al volver a abrir la app
+- Ahora se instala también en pantallas con Android 6, 7, 8 y 9 (arreglado «error al analizar el paquete»)

@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageInstaller
 import android.os.Build
+import androidx.core.content.pm.PackageInfoCompat
 import java.net.HttpURLConnection
 import java.net.URL
 
@@ -18,7 +19,7 @@ object Updater {
     class Info(val code: Int, val name: String, val notes: String)
 
     fun installedCode(c: Context): Int = try {
-        c.packageManager.getPackageInfo(c.packageName, 0).longVersionCode.toInt()
+        PackageInfoCompat.getLongVersionCode(c.packageManager.getPackageInfo(c.packageName, 0)).toInt()
     } catch (_: Exception) {
         0
     }

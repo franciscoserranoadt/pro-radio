@@ -11,7 +11,7 @@ android {
 
     defaultConfig {
         applicationId 'es.proradio.app'
-        minSdk 29
+        minSdk 23
         targetSdk 34
         versionCode runNumber
         versionName "1.0.${runNumber}"

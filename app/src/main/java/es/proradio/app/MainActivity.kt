@@ -325,7 +325,8 @@ class MainActivity : Activity() {
     }
 
     private fun startUpdate() {
-        if (!packageManager.canRequestPackageInstalls()) {
+        // Android 8+ pide permiso por app; en Android 6-7 vale con «Orígenes desconocidos».
+        if (Build.VERSION.SDK_INT >= 26 && !packageManager.canRequestPackageInstalls()) {
             AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
                 .setTitle("Falta un permiso")
                 .setMessage(
