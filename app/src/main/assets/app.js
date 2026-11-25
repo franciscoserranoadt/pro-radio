@@ -692,18 +692,19 @@ function act(el, long, ev) {
 }
 
 /* ---------- Sincronización móvil ⇄ coche ----------
-   Las memorias y favoritas se guardan en jsonblob.com (gratis, sin cuenta).
-   Para vincular se usa un código de 8 letras que viaja por ntfy.sh (como en Pro Maps). */
-var BLOB = 'https://jsonblob.com/api/jsonBlob/';
+   Funciona igual que Pro Maps: canal privado en ntfy.sh (gratis, sin cuenta) cuyo nombre es el código.
+   ntfy guarda los mensajes 12 h, así que cada aparato vuelve a publicar sus memorias al abrirse
+   (y cada pocas horas) para que el otro las reciba siempre. Cada aparato guarda además su copia. */
 var NTFY = 'https://ntfy.sh/proradio-';
 var SY = LS.get('sync', null);
+if (SY && !SY.code) SY = null;
 var syncT = LS.get('syncT', 0), lastSync = 0, syncMsg = '', pushT = null, syncBusy = false;
 var httpN = 0, httpP = {};
 function http(method, url, body) {
   return new Promise(function (res, rej) {
     if (!A || !A.http) {
-      fetch(url, { method: method, body: body == null ? undefined : body, headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' } })
-        .then(function (r) { return r.text().then(function (t) { res({ ok: r.ok, code: r.status, text: t, loc: r.headers.get('Location') || '' }); }); })
+      fetch(url, { method: method, body: body == null ? undefined : body })
+        .then(function (r) { return r.text().then(function (t) { res({ ok: r.ok, code: r.status, text: t, loc: '' }); }); })
         .catch(rej);
       return;
     }
@@ -713,6 +714,7 @@ function http(method, url, body) {
     setTimeout(function () { if (httpP[id]) { delete httpP[id]; rej(new Error('tiempo agotado')); } }, 30000);
   });
 }
+function topic() { return NTFY + SY.code.toLowerCase(); }
 function fmtCode(c) { return c.slice(0, 4) + '-' + c.slice(4); }
 function newCode() {
   var abc = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789', c = '';
@@ -720,11 +722,11 @@ function newCode() {
   return c;
 }
 function hasData(mem, favs) { return (mem || []).some(function (x) { return !!x; }) || (favs || []).length > 0; }
-function syncData() { return { app: 'proradio', v: 1, t: syncT, mem: S.mem, favs: S.favs }; }
+function slim(st) { return st ? { id: st.id, name: st.name, url: st.url, fav: st.fav || '', hp: st.hp || '', cc: st.cc || '', tags: st.tags || '' } : null; }
 function localChanged() {
   syncT = Date.now(); LS.set('syncT', syncT);
   if (!SY) return;
-  clearTimeout(pushT); pushT = setTimeout(syncPush, 1500);
+  clearTimeout(pushT); pushT = setTimeout(syncPush, 2500);
 }
 function fixMem(m) { m = (m || []).slice(0, 30); while (m.length < 30) m.push(null); return m; }
 function applyRemote(d, msg) {
@@ -736,74 +738,83 @@ function applyRemote(d, msg) {
   renderNow();
   if (msg) toast(msg);
 }
-var DEAD = 'El enlace ha caducado: desvincula y crea un código nuevo';
+/* Publica las memorias en trozos (ntfy admite mensajes pequeños). */
 function syncPush() {
   if (!SY) return Promise.resolve();
-  return http('PUT', BLOB + SY.blob, JSON.stringify(syncData())).then(function (r) {
-    if (r.ok) { lastSync = Date.now(); syncMsg = ''; }
-    else syncMsg = r.code === 404 ? DEAD : 'No se pudo enviar (error ' + r.code + ')';
-    renderSync();
-  }).catch(function () { syncMsg = 'Sin conexión: se enviará más tarde'; renderSync(); });
+  if (!syncT) { syncT = Date.now(); LS.set('syncT', syncT); }
+  var data = JSON.stringify({ mem: S.mem.map(slim), favs: S.favs.map(slim) });
+  var size = 1500, n = Math.ceil(data.length / size), t = syncT, chain = Promise.resolve(true);
+  for (var i = 0; i < n; i++) (function (i) {
+    chain = chain.then(function (ok) {
+      if (!ok) return false;
+      var msg = JSON.stringify({ app: 'proradio', t: t, i: i, n: n, d: data.slice(i * size, (i + 1) * size) });
+      return http('POST', topic(), msg).then(function (r) { if (!r.ok) syncMsg = 'No se pudo enviar (error ' + r.code + ')'; return r.ok; });
+    });
+  })(i);
+  return chain.then(function (ok) {
+    if (ok) { lastSync = Date.now(); syncMsg = ''; LS.set('pubT', Date.now()); }
+    renderSync(); return ok;
+  }).catch(function () { syncMsg = 'Sin conexión: se enviará más tarde'; renderSync(); return false; });
+}
+/* Lee el canal y devuelve la versión completa más reciente {t, mem, favs}, o null. */
+function readRemote() {
+  return http('GET', topic() + '/json?poll=1&since=12h').then(function (r) {
+    if (!r.ok) throw new Error('error ' + r.code);
+    var parts = {};
+    (r.text || '').split('\n').forEach(function (line) {
+      try {
+        var m = JSON.parse(line); if (m.event !== 'message') return;
+        var o = JSON.parse(m.message); if (o.app !== 'proradio') return;
+        (parts[o.t] = parts[o.t] || { n: o.n, got: {} }).got[o.i] = o.d;
+      } catch (e) {}
+    });
+    var best = null;
+    Object.keys(parts).map(Number).sort(function (a, b) { return b - a; }).some(function (t) {
+      var p = parts[t], txt = '';
+      for (var k = 0; k < p.n; k++) { if (p.got[k] == null) return false; txt += p.got[k]; }
+      try { var d = JSON.parse(txt); d.t = t; best = d; return true; } catch (e) { return false; }
+    });
+    return best;
+  });
 }
 function syncPull() {
   if (!SY || syncBusy) return Promise.resolve();
   syncBusy = true;
-  return http('GET', BLOB + SY.blob).then(function (r) {
+  return readRemote().then(function (d) {
     syncBusy = false;
-    if (!r.ok) { syncMsg = r.code === 404 ? DEAD : 'Error ' + r.code; renderSync(); return; }
-    var d = null; try { d = JSON.parse(r.text); } catch (e) {}
-    if (d && d.app === 'proradio' && d.t > syncT) applyRemote(d, '📲 Memorias actualizadas desde el otro aparato');
-    else if (!d || d.t < syncT) syncPush();
+    if (d && d.t > syncT) applyRemote(d, '📲 Memorias actualizadas desde el otro aparato');
+    else if (!d || d.t < syncT || Date.now() - LS.get('pubT', 0) > 6 * 3600e3) { syncPush(); return; }
     lastSync = Date.now(); syncMsg = ''; renderSync();
-  }).catch(function () { syncBusy = false; syncMsg = 'Sin conexión'; renderSync(); });
-}
-/* Publica el enlace en ntfy para que el otro aparato pueda unirse con el código (dura 12 h). */
-function announce(force) {
-  if (!SY) return;
-  if (!force && Date.now() - LS.get('annT', 0) < 6 * 3600e3) return;
-  http('POST', NTFY + SY.code.toLowerCase(), SY.blob).then(function (r) { if (r.ok) LS.set('annT', Date.now()); }).catch(function () {});
+  }).catch(function (e) { syncBusy = false; syncMsg = 'Sin conexión (' + e.message + ')'; renderSync(); });
 }
 function syncCreate() {
+  SY = { code: newCode() }; LS.set('sync', SY);
   toast('Creando código…');
-  if (!syncT) { syncT = Date.now(); LS.set('syncT', syncT); }
-  http('POST', BLOB.slice(0, -1), JSON.stringify(syncData())).then(function (r) {
-    var m = /jsonBlob\/([A-Za-z0-9-]+)/.exec(r.loc || '');
-    if (!r.ok || !m) { toast('No se pudo crear el código. Inténtalo de nuevo.'); return; }
-    SY = { code: newCode(), blob: m[1] }; LS.set('sync', SY);
-    announce(true); lastSync = Date.now(); syncMsg = '';
-    renderSync();
-    toast('Código creado: ' + fmtCode(SY.code));
-  }).catch(function () { toast('Sin conexión. Inténtalo de nuevo.'); });
+  syncPush().then(function (ok) {
+    if (ok) toast('Código creado: ' + fmtCode(SY.code));
+    else toast('Código creado, pero aún no se pudo enviar: ' + (syncMsg || 'sin conexión'));
+  });
+  renderSync();
 }
 function syncJoin(raw) {
   var code = (raw || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
   if (code.length !== 8) { toast('El código tiene 8 letras o números'); return; }
   closeSheet(); toast('Buscando el otro aparato…');
-  http('GET', NTFY + code.toLowerCase() + '/json?poll=1&since=12h').then(function (r) {
-    var blob = null;
-    (r.text || '').split('\n').forEach(function (line) {
-      try { var m = JSON.parse(line); if (m.event === 'message' && /^[A-Za-z0-9-]{10,}$/.test(m.message)) blob = m.message; } catch (e) {}
-    });
-    if (!blob) { toast('Código no encontrado. Abre Pro Radio en el otro aparato y vuelve a probar.'); return; }
-    return http('GET', BLOB + blob).then(function (r2) {
-      if (!r2.ok) { toast('No se pudo leer el otro aparato (error ' + r2.code + ')'); return; }
-      var d = null; try { d = JSON.parse(r2.text); } catch (e) {}
-      SY = { code: code, blob: blob }; LS.set('sync', SY); LS.set('annT', Date.now());
-      if (d && hasData(d.mem, d.favs)) {
-        // Se juntan: manda lo del otro aparato; los huecos libres se rellenan con lo de este.
-        var mem = fixMem(d.mem), local = S.mem;
-        for (var k = 0; k < 30; k++) if (!mem[k] && local[k] && idxOf(mem, local[k].id) < 0) mem[k] = local[k];
-        var favs = (d.favs || []).slice();
-        S.favs.forEach(function (f) { if (idxOf(favs, f.id) < 0) favs.push(f); });
-        applyRemote({ mem: mem, favs: favs, t: Date.now() }, '✅ Vinculado: memorias juntadas con el otro aparato');
-        syncPush();
-      } else {
-        localChanged(); syncPush();
-        toast('✅ Vinculado');
-      }
-      lastSync = Date.now(); renderSync();
-    });
-  }).catch(function () { toast('Sin conexión. Inténtalo de nuevo.'); });
+  var prev = SY;
+  SY = { code: code };
+  readRemote().then(function (d) {
+    if (!d) { SY = prev; toast('Código no encontrado. Abre Pro Radio en el otro aparato y vuelve a probar.'); return; }
+    LS.set('sync', SY);
+    // Se juntan: manda lo del otro aparato; los huecos libres se rellenan con lo de este.
+    var mem = fixMem(d.mem), local = S.mem;
+    for (var k = 0; k < 30; k++) if (!mem[k] && local[k] && idxOf(mem, local[k].id) < 0) mem[k] = local[k];
+    var favs = (d.favs || []).slice();
+    S.favs.forEach(function (f) { if (idxOf(favs, f.id) < 0) favs.push(f); });
+    var added = hasData(local, S.favs);
+    applyRemote({ mem: mem, favs: favs, t: added ? Date.now() : d.t }, added ? '✅ Vinculado: memorias juntadas con el otro aparato' : '✅ Vinculado');
+    if (added) syncPush();
+    lastSync = Date.now(); renderSync();
+  }).catch(function (e) { SY = prev; toast('No se pudo conectar (' + e.message + '). Inténtalo de nuevo.'); });
 }
 function joinSheet() {
   sheetActs = [];
@@ -897,7 +908,7 @@ function init() {
   setInterval(function () { lastWx = Date.now(); weather(); }, 15 * 60000);
   setTimeout(loadCountriesQuiet, 1500);
   renderSync();
-  if (SY) { announce(false); setTimeout(syncPull, 1200); }
+  if (SY) setTimeout(syncPull, 1200);
   setInterval(function () { if (SY) syncPull(); if (S.tab === 'set') renderSync(); }, 60000);
 }
 function loadCountriesQuiet() {

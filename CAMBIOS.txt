@@ -1,2 +1,1 @@
-- El interruptor «Seguir sonando en segundo plano» ya se puede apagar
-- Al mover memorias, los botones del volante siguen el nuevo orden al momento
+- Arreglado: «Crear código» de sincronización ya funciona (ahora usa el mismo sistema que Pro Maps)
