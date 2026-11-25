@@ -34,7 +34,7 @@ var S = {
   tab: 'home', bank: 0, cont: 'EU',
   countries: null,
   loc: LS.get('loc', null), place: LS.get('place', ''),
-  set: { autostart: '1', reconnect: '1', pmbtn: '1', weather: '1', nav: 'mem' }
+  set: { autostart: '1', reconnect: '1', weather: '1' }
 };
 while (S.mem.length < 30) S.mem.push(null);
 S.mem = S.mem.slice(0, 30);
@@ -124,15 +124,38 @@ function ini(name) {
   if (main.length === 1) return main[0].slice(0, 4).toUpperCase();
   return (main[0].charAt(0) + main[1].charAt(0)).toUpperCase();
 }
+function host(u) { var m = /^https?:\/\/([^\/:?#]+)/i.exec(u || ''); return m ? m[1].toLowerCase() : ''; }
+/* Logo: primero el de la emisora; si falla o es diminuto, se busca el icono de su web; si no, quedan las iniciales. */
+function logoSources(st) {
+  var out = [];
+  if (st.fav && /^https?:\/\//.test(st.fav)) out.push(st.fav);
+  var hosts = [];
+  [host(st.hp), host(st.fav)].forEach(function (h) {
+    if (h && hosts.indexOf(h) < 0 && !/radio-browser|google|facebook|wikimedia/.test(h)) hosts.push(h);
+  });
+  hosts.forEach(function (h) { out.push('https://www.google.com/s2/favicons?domain=' + h + '&sz=128'); });
+  if (hosts[0]) out.push('https://icons.duckduckgo.com/ip3/' + hosts[0] + '.ico');
+  return out;
+}
+window.PRimgErr = function (im) {
+  var alts = (im.getAttribute('data-alts') || '').split('|').filter(Boolean);
+  if (alts.length) { im.setAttribute('data-alts', alts.slice(1).join('|')); im.src = alts[0]; }
+  else if (im.parentNode) im.parentNode.removeChild(im);
+};
+window.PRimgOk = function (im) {
+  if (im.naturalWidth < 24 && im.naturalHeight < 24) { window.PRimgErr(im); return; }
+  im.className = 'ok';
+};
 function logo(st, extra) {
   var h = '<span class="lg ' + (extra || '') + '" style="background:' + col(st.name) + '">' + esc(ini(st.name));
-  if (st.fav && /^https?:\/\//.test(st.fav)) h += '<img src="' + esc(st.fav) + '" onerror="this.parentNode.removeChild(this)">';
+  var src = logoSources(st);
+  if (src.length) h += '<img src="' + esc(src[0]) + '" data-alts="' + esc(src.slice(1).join('|')) + '" onload="PRimgOk(this)" onerror="PRimgErr(this)">';
   return h + '</span>';
 }
 function idxOf(list, id) { for (var k = 0; k < list.length; k++) if (list[k] && list[k].id === id) return k; return -1; }
 function memIndex(id) { return idxOf(S.mem, id); }
 function isFav(id) { return idxOf(S.favs, id) >= 0; }
-function mini(st) { return { id: st.id, name: st.name, url: st.url, fav: st.fav, cc: st.cc, city: st.city, tags: st.tags, br: st.br, codec: st.codec }; }
+function mini(st) { return { id: st.id, name: st.name, url: st.url, fav: st.fav, hp: st.hp || '', cc: st.cc, city: st.city, tags: st.tags, br: st.br, codec: st.codec }; }
 var toastT = null;
 function toast(msg) {
   var t = $('toast'); t.textContent = msg; t.classList.add('show');
@@ -169,7 +192,7 @@ function rb(path) {
 function mapSt(o) {
   var tags = (o.tags || '').split(',').map(function (t) { return t.trim(); }).filter(Boolean).slice(0, 3).join(' · ');
   return {
-    id: o.stationuuid, name: (o.name || '').trim(), url: o.url_resolved || o.url, fav: o.favicon || '',
+    id: o.stationuuid, name: (o.name || '').trim(), url: o.url_resolved || o.url, fav: o.favicon || '', hp: o.homepage || '',
     cc: (o.countrycode || '').toUpperCase(), city: (o.state || '').trim(), tags: tags, br: o.bitrate || 0, codec: o.codec || ''
   };
 }
@@ -224,10 +247,8 @@ function loadList() {
 /* ---------- Reproducción ---------- */
 function memList() { return S.mem.filter(function (x) { return !!x; }); }
 function play(st, src) {
-  var list;
-  if (S.set.nav === 'mem') list = memList();
-  else if (S.set.nav === 'fav') list = S.favs.slice();
-  else list = (src || S.list).slice(0, 200);
+  // Siguiente / anterior (pantalla y volante) recorren siempre las memorias.
+  var list = memList();
   var i = idxOf(list, st.id);
   if (i < 0) { list = [st].concat(list); i = 0; }
   S.queue = list.map(mini);
@@ -504,12 +525,6 @@ function showPlace() { $('wxPlace').textContent = 'EXTERIOR' + (S.place ? ' · '
 function renderSettings() {
   var sws = document.querySelectorAll('.sw[data-k]');
   for (var k = 0; k < sws.length; k++) sws[k].classList.toggle('on', S.set[sws[k].getAttribute('data-k')] === '1');
-  var segs = $('navSeg').querySelectorAll('i');
-  for (var j = 0; j < segs.length; j++) segs[j].classList.toggle('on', segs[j].getAttribute('data-v') === S.set.nav);
-  var t = { mem: ['Memoria siguiente', 'Memoria anterior'], list: ['Emisora siguiente de la lista', 'Emisora anterior de la lista'], fav: ['Favorita siguiente', 'Favorita anterior'] }[S.set.nav];
-  $('kNext').textContent = t[0]; $('kPrev').textContent = t[1];
-  $('pmBtn').style.display = S.set.pmbtn === '1' ? '' : 'none';
-  if (A && A.hasProMaps && !A.hasProMaps()) $('pmInfo').textContent = 'Pro Maps no está instalada en esta pantalla';
   weather();
 }
 var KEYS = { 85: 'Play / Pausa', 126: 'Play', 127: 'Pausa', 87: 'Siguiente', 88: 'Anterior', 86: 'Stop', 24: 'Subir volumen', 25: 'Bajar volumen', 164: 'Silencio', 79: 'Botón auricular', 90: 'Avance rápido', 89: 'Retroceso' };
@@ -606,18 +621,11 @@ function act(el, long, ev) {
     case 'favs': S.chip = 'fav'; setTab('home'); loadList(); break;
     case 'retry': loadList(); break;
     case 'retryc': loadCountries(); break;
-    case 'pm':
-      if (!A || !A.openProMaps()) toast('Pro Maps no está instalada en esta pantalla');
-      break;
     case 'sw': {
       var k = el.getAttribute('data-k');
       S.set[k] = S.set[k] === '1' ? '0' : '1'; setPref(k, S.set[k]); renderSettings();
       break;
     }
-    case 'nav':
-      var nv = ev && ev.target && ev.target.getAttribute ? ev.target.getAttribute('data-v') : null;
-      if (nv) { S.set.nav = nv; setPref('nav', nv); renderSettings(); if (S.now) toast('Se aplica al elegir la próxima emisora'); }
-      break;
     case 'vdown': setVol(vol - 7); break;
     case 'vup': setVol(vol + 7); break;
     case 'volbar': {
@@ -665,8 +673,8 @@ function init() {
   var tabs = document.querySelectorAll('.tab');
   for (var k = 0; k < tabs.length; k++) { tabs[k].setAttribute('data-a', 'tab'); tabs[k].setAttribute('data-v', tabs[k].getAttribute('data-t')); }
   bind('bPlay', 'play'); bind('mPlay', 'play'); bind('bPrev', 'prev'); bind('mPrev', 'prev'); bind('bNext', 'next'); bind('mNext', 'next');
-  bind('bFav', 'fav'); bind('seeAll', 'seeall'); bind('countryBtn', 'country'); bind('pmBtn', 'pm');
-  bind('vDown', 'vdown'); bind('vUp', 'vup'); bind('volBar', 'volbar'); bind('micBtn', 'mic'); bind('qGo', 'qgo'); bind('navSeg', 'nav');
+  bind('bFav', 'fav'); bind('seeAll', 'seeall'); bind('countryBtn', 'country');
+  bind('vDown', 'vdown'); bind('vUp', 'vup'); bind('volBar', 'volbar'); bind('micBtn', 'mic'); bind('qGo', 'qgo');
   var sws = document.querySelectorAll('.sw[data-k]');
   for (var j = 0; j < sws.length; j++) sws[j].setAttribute('data-a', 'sw');
   $('q').addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.keyCode === 13) doSearch(this.value); });

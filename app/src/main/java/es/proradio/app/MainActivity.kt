@@ -271,17 +271,6 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun findProMaps(): Intent? {
-        val pm = packageManager
-        val main = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
-        @Suppress("DEPRECATION")
-        val apps = pm.queryIntentActivities(main, 0)
-        val hit = apps.firstOrNull {
-            it.loadLabel(pm).toString().lowercase().replace(" ", "").contains("promaps")
-        } ?: return null
-        return pm.getLaunchIntentForPackage(hit.activityInfo.packageName)
-    }
-
     // ---------- Puente con la pantalla (JavaScript) ----------
 
     inner class Bridge {
@@ -326,21 +315,6 @@ class MainActivity : Activity() {
 
         @JavascriptInterface
         fun lastQueue(): String = Store.queueJson(this@MainActivity)
-
-        @JavascriptInterface
-        fun hasProMaps(): Boolean = findProMaps() != null
-
-        @JavascriptInterface
-        fun openProMaps(): Boolean {
-            val i = findProMaps() ?: return false
-            runOnUiThread {
-                try {
-                    startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                } catch (_: Exception) {
-                }
-            }
-            return true
-        }
 
         @JavascriptInterface
         fun voice(): Boolean {
