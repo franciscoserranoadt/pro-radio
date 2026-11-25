@@ -34,6 +34,7 @@ import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
+import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
@@ -121,6 +122,8 @@ class MainActivity : Activity() {
     }
 
     override fun onStop() {
+        // «Seguir sonando en segundo plano» apagado: al salir de la app se para la radio.
+        if (!Store.isOn(this, "background") && !isChangingConfigurations) controller?.pause()
         controller?.removeListener(playerListener)
         controllerFuture?.let { MediaController.releaseFuture(it) }
         controller = null
@@ -449,6 +452,27 @@ class MainActivity : Activity() {
                 val o = JSONObject().put("id", id).put("ok", ok).put("code", code).put("text", text).put("loc", loc)
                 js("PR.onHttp($o)")
             }.start()
+        }
+
+        /** Reordena la cola (tras mover memorias) sin cortar la emisora que suena. */
+        @JavascriptInterface
+        fun reorder(json: String) = runOnUiThread {
+            val c = controller ?: return@runOnUiThread
+            try {
+                val arr = JSONArray(json)
+                val ids = (0 until arr.length()).map { arr.getJSONObject(it).optString("id") }
+                if (ids.size != c.mediaItemCount) return@runOnUiThread
+                for (i in ids.indices) {
+                    var j = -1
+                    for (k in i until c.mediaItemCount) {
+                        if (c.getMediaItemAt(k).mediaId == ids[i]) { j = k; break }
+                    }
+                    if (j < 0) return@runOnUiThread
+                    if (j != i) c.moveMediaItem(j, i)
+                }
+                Store.saveQueue(this@MainActivity, json, c.currentMediaItemIndex)
+            } catch (_: Exception) {
+            }
         }
 
         @JavascriptInterface

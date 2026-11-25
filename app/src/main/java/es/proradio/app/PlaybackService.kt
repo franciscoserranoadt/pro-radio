@@ -172,6 +172,11 @@ class PlaybackService : MediaSessionService() {
 
     // Si se cierra la app desde "recientes", la radio sigue sonando.
     override fun onTaskRemoved(rootIntent: Intent?) {
+        if (!Store.isOn(this, "background")) {
+            exo.pause()
+            stopSelf()
+            return
+        }
         if (!exo.playWhenReady || exo.mediaItemCount == 0) stopSelf()
     }
 

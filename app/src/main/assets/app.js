@@ -34,7 +34,7 @@ var S = {
   tab: 'home', bank: 0, moving: -1, cont: 'EU',
   countries: null,
   loc: LS.get('loc', null), place: LS.get('place', ''),
-  set: { autostart: '1', reconnect: '1', weather: '1' }
+  set: { autostart: '1', background: '1', reconnect: '1', weather: '1' }
 };
 while (S.mem.length < 30) S.mem.push(null);
 S.mem = S.mem.slice(0, 30);
@@ -569,7 +569,17 @@ function startMove(k) {
   setTab('mem'); renderSlots();
   toast('Toca la posición donde quieres ponerla');
 }
-function endMove(msg) { S.moving = -1; LS.set('mem', S.mem); localChanged(); renderNow(); if (msg) toast(msg); }
+function endMove(msg) { S.moving = -1; LS.set('mem', S.mem); localChanged(); syncQueueOrder(); renderNow(); if (msg) toast(msg); }
+/* Si suena una memoria, el orden de siguiente/anterior (volante) se actualiza sin cortar la radio. */
+function syncQueueOrder() {
+  var m = memList();
+  if (!m.length || m.length !== S.queue.length) return;
+  var ids = {};
+  S.queue.forEach(function (q) { ids[q.id] = 1; });
+  if (!m.every(function (x) { return ids[x.id]; })) return;
+  S.queue = m.map(mini);
+  if (A && A.reorder) A.reorder(JSON.stringify(S.queue));
+}
 function doMove(from, to) {
   var m = S.mem[from];
   if (from === to || !m) { S.moving = -1; renderSlots(); return; }
@@ -722,6 +732,7 @@ function applyRemote(d, msg) {
   LS.set('mem', S.mem); LS.set('favs', S.favs);
   syncT = d.t || Date.now(); LS.set('syncT', syncT);
   if (S.chip === 'fav') { S.list = S.favs.slice(); renderList(); } else updateRowHearts();
+  syncQueueOrder();
   renderNow();
   if (msg) toast(msg);
 }

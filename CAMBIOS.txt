@@ -1,1 +1,2 @@
-- Reordenar memorias: mantén pulsada una memoria → «Mover a otra posición»
+- El interruptor «Seguir sonando en segundo plano» ya se puede apagar
+- Al mover memorias, los botones del volante siguen el nuevo orden al momento
