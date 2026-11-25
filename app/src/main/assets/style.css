@@ -206,3 +206,10 @@ svg{flex-shrink:0}
 .sybtn:active{transform:scale(.97)}
 .sheet.top{align-items:flex-start;padding-top:30px}
 .syin{width:100%;height:62px;border-radius:14px;border:2px solid #3ee7ff;background:#0c0f2e;color:#fff;font-family:Poppins,sans-serif;font-size:26px;letter-spacing:4px;text-align:center;text-transform:uppercase;outline:0;margin-bottom:12px;-webkit-user-select:text;user-select:text}
+
+/* mover memorias */
+.slot.moving{border:2px dashed #ffc65c;opacity:.55}
+.slot.target{border:2px solid rgba(62,231,255,.45)}
+.slot.empty.target{border-style:dashed}
+.movetxt{color:#ffc65c;font-weight:600;font-size:14px}
+.movecancel{margin-left:14px;padding:8px 18px;border-radius:18px;background:rgba(255,255,255,.08);color:#fff;font-weight:600}

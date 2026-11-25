@@ -1,1 +1,1 @@
-- Sincronización de memorias y favoritas entre el móvil y la pantalla del coche (Ajustes → Sincronizar)
+- Reordenar memorias: mantén pulsada una memoria → «Mover a otra posición»

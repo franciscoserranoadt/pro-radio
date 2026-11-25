@@ -31,7 +31,7 @@ var S = {
   now: null,
   queue: [],
   playing: false, want: false, state: 1, err: false, song: '',
-  tab: 'home', bank: 0, cont: 'EU',
+  tab: 'home', bank: 0, moving: -1, cont: 'EU',
   countries: null,
   loc: LS.get('loc', null), place: LS.get('place', ''),
   set: { autostart: '1', reconnect: '1', weather: '1' }
@@ -298,6 +298,7 @@ function firstFreeMem() { for (var k = 0; k < 30; k++) if (!S.mem[k]) return k; 
 
 /* ---------- Pintado ---------- */
 function setTab(t) {
+  if (t !== 'mem' && S.moving >= 0) S.moving = -1;
   S.tab = t;
   ['home', 'mem', 'world', 'set'].forEach(function (x) { $('v-' + x).classList.toggle('show', x === t); });
   var tabs = document.querySelectorAll('.tab');
@@ -409,7 +410,12 @@ function renderQuick() {
 function renderSlots() {
   var h = '', used = 0;
   S.mem.forEach(function (m) { if (m) used++; });
-  $('memCount').textContent = used;
+  if (S.moving >= 0 && S.mem[S.moving]) {
+    $('memHint').innerHTML = '<span class="movetxt">↕ Moviendo «' + esc(S.mem[S.moving].name) + '» (M' + (S.moving + 1) +
+      '): toca la nueva posición</span><span class="movecancel" data-a="movecancel">Cancelar</span>';
+  } else {
+    $('memHint').innerHTML = ic('hand') + 'Toca una libre para guardar la que suena · mantén pulsada para mover o cambiar &nbsp;·&nbsp; <b>' + used + '</b>&nbsp;/ 30';
+  }
   var bh = '';
   ['Memorias 1 – 10', '11 – 20', '21 – 30'].forEach(function (n, k) {
     bh += '<div class="chip' + (S.bank === k ? ' on' : '') + '" data-a="bank" data-v="' + k + '">' + n + '</div>';
@@ -419,10 +425,11 @@ function renderSlots() {
     var m = S.mem[k];
     if (m) {
       var on = S.now && S.now.id === m.id;
-      h += '<div class="card slot' + (on ? ' on' : '') + '" data-a="slot" data-v="' + k + '"><span class="n">' + (k + 1) + '</span>' + logo(m) +
+      h += '<div class="card slot' + (on ? ' on' : '') + (S.moving === k ? ' moving' : (S.moving >= 0 ? ' target' : '')) + '" data-a="slot" data-v="' + k + '"><span class="n">' + (k + 1) + '</span>' + logo(m) +
         '<b>' + esc(m.name) + '</b><small>' + flag(m.cc) + ' ' + esc(m.tags || countryName(m.cc, m.cc)) + '</small></div>';
     } else {
-      h += '<div class="card slot empty" data-a="slot" data-v="' + k + '"><span class="n">' + (k + 1) + '</span><div class="plus">+</div>Libre<br>Toca para guardar<br>la emisora que suena</div>';
+      h += '<div class="card slot empty' + (S.moving >= 0 ? ' target' : '') + '" data-a="slot" data-v="' + k + '"><span class="n">' + (k + 1) + '</span>' +
+        (S.moving >= 0 ? '<div class="plus">↓</div>Mover aquí' : '<div class="plus">+</div>Libre<br>Toca para guardar<br>la emisora que suena') + '</div>';
     }
   }
   $('slots').innerHTML = h;
@@ -548,14 +555,39 @@ function sheet(title, opts) {
 }
 function closeSheet() { $('sheet').classList.remove('show', 'top'); var i = $('syIn'); if (i) i.blur(); }
 function slotLong(k) {
+  if (S.moving >= 0) { slotTap(k); return; }
   var m = S.mem[k], opts = [];
+  if (m) opts.push({ t: '↕ Mover a otra posición', f: function () { startMove(k); } });
   if (S.now) opts.push({ t: 'Guardar aquí «' + S.now.name + '»', c: 'pri', f: function () { saveMem(k, S.now); } });
   if (m) opts.push({ t: 'Escuchar «' + m.name + '»', f: function () { play(m); } });
   if (m) opts.push({ t: 'Vaciar la memoria ' + (k + 1), c: 'dng', f: function () { clearMem(k); } });
   if (!opts.length) { toast('Primero pon una emisora para poder guardarla'); return; }
   sheet('Memoria ' + (k + 1), opts);
 }
+function startMove(k) {
+  S.moving = k; S.bank = Math.floor(k / 10);
+  setTab('mem'); renderSlots();
+  toast('Toca la posición donde quieres ponerla');
+}
+function endMove(msg) { S.moving = -1; LS.set('mem', S.mem); localChanged(); renderNow(); if (msg) toast(msg); }
+function doMove(from, to) {
+  var m = S.mem[from];
+  if (from === to || !m) { S.moving = -1; renderSlots(); return; }
+  if (!S.mem[to]) { S.mem[to] = m; S.mem[from] = null; endMove('«' + m.name + '» movida a la M' + (to + 1)); return; }
+  var other = S.mem[to];
+  sheet('Mover «' + m.name + '» a la M' + (to + 1), [
+    { t: 'Ponerla en la M' + (to + 1) + ' y correr las demás', c: 'pri', f: function () {
+      var it = S.mem.splice(from, 1)[0]; S.mem.splice(to, 0, it);
+      endMove('«' + m.name + '» ahora es la M' + (to + 1));
+    } },
+    { t: 'Intercambiar con «' + other.name + '»', f: function () {
+      S.mem[to] = m; S.mem[from] = other;
+      endMove('Intercambiadas M' + (from + 1) + ' y M' + (to + 1));
+    } }
+  ]);
+}
 function slotTap(k) {
+  if (S.moving >= 0) { doMove(S.moving, k); return; }
   var m = S.mem[k];
   if (m) { play(m); return; }
   if (!S.now) { toast('Primero pon una emisora para poder guardarla'); return; }
@@ -609,6 +641,7 @@ function act(el, long, ev) {
     case 'rowfav': toggleFav(S.list[+v]); break;
     case 'slot': if (long) slotLong(+v); else slotTap(+v); break;
     case 'bank': S.bank = +v; renderSlots(); break;
+    case 'movecancel': S.moving = -1; renderSlots(); break;
     case 'play': toggle(); break;
     case 'prev': step(false); break;
     case 'next': step(true); break;
