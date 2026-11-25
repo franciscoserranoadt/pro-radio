@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<link rel="stylesheet" href="style.css">
+</head><body>
+<div id="app">
+ <div class="ring" style="width:560px;height:560px;left:-120px;top:-180px"></div>
+ <div class="ring" style="width:820px;height:820px;left:-250px;top:-310px"></div>
+ <div class="ring" style="width:500px;height:500px;right:-160px;bottom:-200px"></div>
+
+ <div class="top">
+  <div class="logo"><svg width="34" height="34" viewBox="0 0 24 24"><defs><linearGradient id="lgr" x1="0" x2="1"><stop offset="0" stop-color="#3ee7ff"/><stop offset="1" stop-color="#d25cff"/></linearGradient></defs><circle cx="12" cy="12" r="2.6" fill="url(#lgr)"/><path d="M7.8 7.8a6 6 0 0 0 0 8.4M16.2 7.8a6 6 0 0 1 0 8.4M5 5a10 10 0 0 0 0 14M19 5a10 10 0 0 1 0 14" stroke="url(#lgr)" stroke-width="2" fill="none" stroke-linecap="round"/></svg><b>PRO RADIO</b></div>
+  <div class="tab" data-t="home"><i data-i="radio"></i>Inicio</div>
+  <div class="tab" data-t="mem"><i data-i="star"></i>Memorias</div>
+  <div class="tab" data-t="world"><i data-i="globe"></i>Países</div>
+  <div class="tab" data-t="set"><i data-i="gear"></i>Ajustes</div>
+  <div class="sp"></div>
+  <div class="wx" id="wx"><span id="wxIcon"></span><div class="t" id="wxT">--°</div><div><small id="wxPlace">EXTERIOR</small><small class="hi" id="wxDesc">Buscando ubicación…</small></div></div>
+  <div class="clock" id="clock">--:--</div>
+  <div class="pm" id="pmBtn"><i data-i="nav"></i>Pro Maps</div>
+ </div>
+
+ <!-- INICIO -->
+ <div class="view" id="v-home">
+  <div class="bar2">
+   <div class="chips" id="chips"></div>
+   <div class="sp"></div>
+   <div class="country" id="countryBtn"><span class="flag" id="cFlag">🇪🇸</span><span id="cName">España</span><span class="muted" id="cCount"></span><i data-i="down"></i></div>
+  </div>
+  <div class="main">
+   <div class="card player">
+    <div class="ptop">
+     <div class="art" id="art"></div>
+     <div class="pinfo">
+      <span class="live" id="liveTag"><i></i><span id="liveTxt">EN DIRECTO</span></span>
+      <div class="st" id="stName">Elige una emisora</div>
+      <div class="prog" id="stSong"></div>
+      <div class="meta">
+       <span id="stTags"></span>
+       <span id="stPlace"></span>
+      </div>
+      <div class="badges" id="stBadges"></div>
+     </div>
+    </div>
+    <div class="ctrl">
+     <div class="cb" id="bPrev"><i data-i="prev" data-s="40"></i></div>
+     <div class="play" id="bPlay"></div>
+     <div class="cb" id="bNext"><i data-i="next" data-s="40"></i></div>
+     <div class="heart" id="bFav"></div>
+    </div>
+    <div class="quick">
+     <h5><span>MEMORIAS RÁPIDAS</span><span class="link" id="seeAll">VER LAS 30 ›</span></h5>
+     <div class="qrow" id="quick"></div>
+    </div>
+   </div>
+   <div class="list" id="list"></div>
+  </div>
+ </div>
+
+ <!-- MEMORIAS -->
+ <div class="view" id="v-mem">
+  <div class="bar2">
+   <div class="chips" id="banks"></div>
+   <div class="sp"></div>
+   <div class="hint"><i data-i="hand"></i>Toca una libre para guardar la que suena · mantén pulsada para cambiarla &nbsp;·&nbsp; <b id="memCount">0</b>&nbsp;/ 30</div>
+  </div>
+  <div class="grid10" id="slots"></div>
+  <div class="card mini">
+   <span id="miniArt"></span>
+   <div class="minfo"><span class="live"><i></i><span id="miniTag">EN DIRECTO</span></span><div class="mname" id="miniName">—</div><div class="msong" id="miniSong"></div></div>
+   <div class="sp"></div>
+   <div class="cb" id="mPrev"><i data-i="prev" data-s="34"></i></div><div class="play" id="mPlay"></div><div class="cb" id="mNext"><i data-i="next" data-s="34"></i></div>
+   <div class="sp"></div>
+   <div class="vbtn" id="vDown"><i data-i="minus"></i></div>
+   <div class="vol" id="volBar"><i id="volFill"></i></div>
+   <div class="vbtn" id="vUp"><i data-i="plus"></i></div>
+   <span class="vnum" id="volNum">--</span>
+  </div>
+ </div>
+
+ <!-- PAISES -->
+ <div class="view" id="v-world">
+  <div class="bar2">
+   <div class="search"><i data-i="search"></i><input id="q" type="text" placeholder="Buscar emisora, ciudad o estilo" autocomplete="off"><span class="mic" id="micBtn"><i data-i="mic" data-s="18" data-c="#0c0f2e"></i></span></div>
+   <div class="sbtn" id="qGo">Buscar</div>
+   <div class="sp"></div>
+   <div class="muted" id="worldInfo">Catálogo mundial gratuito</div>
+  </div>
+  <div class="main">
+   <div class="card cont" id="conts"></div>
+   <div class="cgrid" id="countries"></div>
+  </div>
+ </div>
+
+ <!-- AJUSTES -->
+ <div class="view" id="v-set">
+  <div class="main">
+   <div class="card set">
+    <h3><i data-i="wheel"></i>Mandos al volante</h3>
+    <p class="s">Funcionan con la app abierta, en segundo plano y mientras usas Pro Maps.</p>
+    <div class="kmap">
+     <div class="km"><span class="key">►❚❚</span><span>Play / Pausa<small>Pausa o reanuda la emisora</small></span></div>
+     <div class="km"><span class="key">►►</span><span>Siguiente<small id="kNext">Memoria siguiente</small></span></div>
+     <div class="km"><span class="key">◄◄</span><span>Anterior<small id="kPrev">Memoria anterior</small></span></div>
+     <div class="km"><span class="key">▶</span><span>Play con la app cerrada<small>Vuelve la última emisora</small></span></div>
+    </div>
+    <div class="detect"><i data-i="wheel" data-s="40" data-c="#3ee7ff"></i><div><div class="dt">Prueba de botones</div><div class="muted" id="keyOut">Pulsa un botón del volante con esta pantalla abierta…</div></div></div>
+    <div class="segrow"><span>Siguiente / Anterior recorre:</span><div class="seg" id="navSeg"><i data-v="mem">Memorias</i><i data-v="list">Lista actual</i><i data-v="fav">Favoritas</i></div></div>
+   </div>
+   <div class="card set">
+    <h3><i data-i="gear"></i>Coche y reproducción</h3>
+    <p class="s">Ajustes pensados para la pantalla del coche.</p>
+    <div class="tg"><span>Arrancar con el coche<small>Al encender o abrir la app suena la última emisora</small></span><div class="sw" data-k="autostart"></div></div>
+    <div class="tg"><span>Seguir sonando en segundo plano<small>Siempre activo · aviso fijo con controles</small></span><div class="sw on fixed"></div></div>
+    <div class="tg"><span>Reconectar si se corta la señal<small>Túneles y zonas sin cobertura</small></span><div class="sw" data-k="reconnect"></div></div>
+    <div class="tg"><span>Botón de acceso a Pro Maps<small id="pmInfo">La radio sigue sonando mientras navegas</small></span><div class="sw" data-k="pmbtn"></div></div>
+    <div class="tg nob"><span>Clima y temperatura exterior<small>Por ubicación GPS · se actualiza cada 15 min</small></span><div class="sw" data-k="weather"></div></div>
+    <div class="ver" id="ver">Pro Radio · catálogo Radio Browser · clima Open-Meteo</div>
+   </div>
+  </div>
+ </div>
+
+ <div class="sheet" id="sheet"><div class="card sbox"><div class="stitle" id="sTitle"></div><div id="sBtns"></div></div></div>
+ <div class="toast" id="toast"></div>
+</div>
+<script src="app.js"></script>
+</body></html>

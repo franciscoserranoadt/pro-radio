@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="pr_bg">#0C0F2E</color>
+    <color name="pr_icon_bg">#141047</color>
+    <style name="ProRadioTheme" parent="@android:style/Theme.Material.NoActionBar.Fullscreen">
+        <item name="android:windowBackground">@color/pr_bg</item>
+        <item name="android:statusBarColor">@color/pr_bg</item>
+        <item name="android:navigationBarColor">@color/pr_bg</item>
+    </style>
+</resources>
