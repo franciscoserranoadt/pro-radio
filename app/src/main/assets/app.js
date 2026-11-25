@@ -639,6 +639,7 @@ function act(el, long, ev) {
     case 'qgo': doSearch($('q').value); break;
     case 'sopt': { var o = sheetActs[+v]; closeSheet(); if (o) o.f(); break; }
     case 'sclose': closeSheet(); break;
+    case 'upd': if (A && A.checkUpdate) A.checkUpdate(); else toast('Solo disponible en la app'); break;
   }
 }
 
@@ -674,7 +675,8 @@ function init() {
   for (var k = 0; k < tabs.length; k++) { tabs[k].setAttribute('data-a', 'tab'); tabs[k].setAttribute('data-v', tabs[k].getAttribute('data-t')); }
   bind('bPlay', 'play'); bind('mPlay', 'play'); bind('bPrev', 'prev'); bind('mPrev', 'prev'); bind('bNext', 'next'); bind('mNext', 'next');
   bind('bFav', 'fav'); bind('seeAll', 'seeall'); bind('countryBtn', 'country');
-  bind('vDown', 'vdown'); bind('vUp', 'vup'); bind('volBar', 'volbar'); bind('micBtn', 'mic'); bind('qGo', 'qgo');
+  bind('vDown', 'vdown'); bind('vUp', 'vup'); bind('volBar', 'volbar'); bind('micBtn', 'mic'); bind('qGo', 'qgo'); bind('updBtn', 'upd');
+  if (A && A.version) { try { $('updBtn').textContent = '🔄 Buscar actualización (tienes la v' + A.version() + ')'; } catch (e) {} }
   var sws = document.querySelectorAll('.sw[data-k]');
   for (var j = 0; j < sws.length; j++) sws[j].setAttribute('data-a', 'sw');
   $('q').addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.keyCode === 13) doSearch(this.value); });

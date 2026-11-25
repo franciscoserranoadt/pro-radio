@@ -3,18 +3,23 @@ package es.proradio.app
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.ActivityNotFoundException
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageInstaller
 import android.content.pm.PackageManager
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
 import android.media.AudioManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
 import android.os.Looper
+import android.provider.Settings
 import android.speech.RecognizerIntent
 import android.view.KeyEvent
 import android.view.View
@@ -42,6 +47,8 @@ class MainActivity : Activity() {
     private var lastLat = Double.NaN
     private var lastLon = Double.NaN
     private var locationStarted = false
+    private val handler = Handler(Looper.getMainLooper())
+    private val prefs by lazy { getSharedPreferences("proradio", Context.MODE_PRIVATE) }
 
     private val audio by lazy { getSystemService(Context.AUDIO_SERVICE) as AudioManager }
     private val locationManager by lazy { getSystemService(Context.LOCATION_SERVICE) as LocationManager }
@@ -88,6 +95,7 @@ class MainActivity : Activity() {
         setContentView(web)
 
         askPermissions()
+        handler.postDelayed({ checkUpdate(false) }, 5000)
     }
 
     override fun onStart() {
@@ -271,6 +279,85 @@ class MainActivity : Activity() {
         }
     }
 
+    // ---------- Actualizaciones (igual que Pro Maps) ----------
+
+    private fun toast(msg: String) = js("PR.toast(" + JSONObject.quote(msg) + ")")
+
+    private fun checkUpdate(manual: Boolean) {
+        if (manual) toast("Buscando actualizaciones…")
+        Thread {
+            val info = Updater.latest()
+            val mine = Updater.installedCode(this)
+            handler.post {
+                if (isFinishing) return@post
+                if (info == null) {
+                    if (manual) toast("No se pudo comprobar. ¿Tienes internet?")
+                    return@post
+                }
+                if (info.code <= mine) {
+                    if (manual) toast("Ya tienes la última versión (v" + Updater.installedName(this) + ")")
+                    return@post
+                }
+                if (!manual && prefs.getInt("skipVersion", 0) == info.code) return@post
+                AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
+                    .setTitle("Hay una versión nueva")
+                    .setMessage(
+                        "Pro Radio v" + info.name + " ya está disponible (tienes la v" + Updater.installedName(this) + ")." +
+                                (if (info.notes.isEmpty()) "" else "\n\nNovedades:\n" + info.notes) +
+                                "\n\nTus memorias y favoritas se mantienen."
+                    )
+                    .setPositiveButton("Actualizar") { _, _ -> startUpdate() }
+                    .setNeutralButton("Esta no") { _, _ -> prefs.edit().putInt("skipVersion", info.code).apply() }
+                    .setNegativeButton("Más tarde", null)
+                    .show()
+            }
+        }.start()
+    }
+
+    private fun startUpdate() {
+        if (!packageManager.canRequestPackageInstalls()) {
+            AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
+                .setTitle("Falta un permiso")
+                .setMessage(
+                    "Para actualizarse, Android tiene que permitir que Pro Radio instale apps.\n\n" +
+                            "En la siguiente pantalla activa «Permitir de esta fuente», vuelve atrás y pulsa otra vez Actualizar."
+                )
+                .setPositiveButton("Abrir ajustes") { _, _ ->
+                    try {
+                        startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName")))
+                    } catch (_: Exception) {
+                    }
+                }
+                .setNegativeButton("Cancelar", null)
+                .show()
+            return
+        }
+        toast("Descargando la versión nueva…")
+        Thread {
+            val err = Updater.downloadAndInstall(this)
+            if (err != null) handler.post { toast(err) }
+        }.start()
+    }
+
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        if (intent == null || intent.action != Updater.ACTION_STATUS) return
+        val status = intent.getIntExtra(PackageInstaller.EXTRA_STATUS, -999)
+        if (status == PackageInstaller.STATUS_PENDING_USER_ACTION) {
+            @Suppress("DEPRECATION")
+            val confirm = intent.getParcelableExtra<Intent>(Intent.EXTRA_INTENT)
+            if (confirm != null) {
+                try {
+                    startActivity(confirm.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                } catch (_: Exception) {
+                }
+            }
+        } else if (status != PackageInstaller.STATUS_SUCCESS) {
+            val msg = intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE)
+            toast("No se pudo instalar" + if (msg == null) "" else ": $msg")
+        }
+    }
+
     // ---------- Puente con la pantalla (JavaScript) ----------
 
     inner class Bridge {
@@ -312,6 +399,12 @@ class MainActivity : Activity() {
 
         @JavascriptInterface
         fun getPref(key: String, def: String): String = Store.pref(this@MainActivity, key, def)
+
+        @JavascriptInterface
+        fun version(): String = Updater.installedName(this@MainActivity)
+
+        @JavascriptInterface
+        fun checkUpdate() = runOnUiThread { this@MainActivity.checkUpdate(true) }
 
         @JavascriptInterface
         fun lastQueue(): String = Store.queueJson(this@MainActivity)

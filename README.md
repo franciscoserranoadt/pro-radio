@@ -9,4 +9,4 @@ Radio online con emisoras de todo el mundo para la pantalla Android del coche (J
 - Temperatura exterior y clima por GPS (Open-Meteo).
 
 ## Descargar
-Cada cambio en `main` compila el APK automáticamente: **Releases → ProRadio.apk**.
+Releases → **Pro Radio (última versión)** → **ProRadio.apk**. Después la app avisa sola cuando hay versión nueva.

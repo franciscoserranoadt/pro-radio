@@ -1,0 +1,2 @@
+- Se actualiza sola: avisa cuando hay versión nueva (como Pro Maps)
+- Botón «Buscar actualización» en Ajustes

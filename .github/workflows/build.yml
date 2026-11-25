@@ -27,7 +27,11 @@ jobs:
         run: gradle assembleRelease --no-daemon --stacktrace
 
       - name: Preparar APK
-        run: cp app/build/outputs/apk/release/app-release.apk ProRadio.apk
+        run: |
+          cp app/build/outputs/apk/release/app-release.apk ProRadio.apk
+          echo "${{ github.run_number }} 1.0.${{ github.run_number }}" > version.txt
+          if [ -f CAMBIOS.txt ]; then cat CAMBIOS.txt >> version.txt; fi
+          cat version.txt
 
       - uses: actions/upload-artifact@v4
         with:
@@ -35,10 +39,8 @@ jobs:
           path: ProRadio.apk
 
       - name: Publicar en Releases
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v1.0.${{ github.run_number }}
-          name: Pro Radio v1.0.${{ github.run_number }}
-          body: "Descarga **ProRadio.apk** e instálala en la pantalla del coche."
-          files: ProRadio.apk
-          make_latest: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete ultima --yes --cleanup-tag || true
+          gh release create ultima ProRadio.apk version.txt --title "Pro Radio (última versión)" --notes "APK para instalar en el móvil y en la pantalla del coche. Después se actualiza sola desde la app."

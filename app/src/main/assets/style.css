@@ -179,6 +179,8 @@ svg{flex-shrink:0}
 .sw.on{background:linear-gradient(90deg,#3ee7ff,#b04dff)}
 .sw.on:after{left:30px;background:#fff}
 .sw.fixed{opacity:.6}
+.upd{margin-top:16px;height:56px;border-radius:14px;background:rgba(62,231,255,.12);border:1.5px solid #3ee7ff;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:15px}
+.upd:active{transform:scale(.97)}
 .ver{margin-top:14px;font-size:11px;color:#6d73aa}
 
 /* hoja de acciones y avisos */
