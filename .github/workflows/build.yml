@@ -43,4 +43,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release delete ultima --yes --cleanup-tag || true
-          gh release create ultima ProRadio.apk version.txt --title "Pro Radio (última versión)" --notes "APK para instalar en el móvil y en la pantalla del coche. Después se actualiza sola desde la app."
+          sleep 5
+          for i in 1 2 3 4 5; do
+            gh release create ultima ProRadio.apk version.txt --title "Pro Radio (última versión)" --notes "APK para instalar en el móvil y en la pantalla del coche. Después se actualiza sola desde la app." && exit 0
+            echo "Reintento $i…"; sleep 15
+            gh release delete ultima --yes --cleanup-tag || true
+          done
+          exit 1
