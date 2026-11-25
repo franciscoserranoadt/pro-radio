@@ -308,7 +308,7 @@ function setTab(t) {
   ['home', 'mem', 'songs', 'world', 'set'].forEach(function (x) { $('v-' + x).classList.toggle('show', x === t); });
   var tabs = document.querySelectorAll('.tab');
   for (var k = 0; k < tabs.length; k++) tabs[k].classList.toggle('on', tabs[k].getAttribute('data-t') === t);
-  if (t === 'world' && !S.countries) loadCountries();
+  if (t === 'world') { if (S.countries && S.countries.length) renderCountries(); else loadCountries(); }
   if (t === 'mem') readVolume();
   if (t === 'songs') renderSongs();
 }
@@ -454,7 +454,7 @@ var CONT = {
 function contOf(cc) { for (var k in CONT) if (CONT[k][1].indexOf(cc) >= 0) return k; return null; }
 function loadCountries() {
   var cache = LS.get('countries', null);
-  if (cache && Date.now() - cache.t < 7 * 864e5) { S.countries = cache.list; renderCountries(); renderChips(); return; }
+  if (cache && cache.list && cache.list.length && Date.now() - cache.t < 7 * 864e5) { S.countries = cache.list; renderCountries(); renderChips(); return; }
   $('countries').innerHTML = '<div class="msg"><b>Cargando países…</b></div>';
   rb('/json/countries').then(function (arr) {
     var map = {};
@@ -1050,7 +1050,7 @@ function init() {
 }
 function loadCountriesQuiet() {
   var cache = LS.get('countries', null);
-  if (cache && Date.now() - cache.t < 7 * 864e5) { S.countries = cache.list; renderChips(); return; }
+  if (cache && cache.list && cache.list.length && Date.now() - cache.t < 7 * 864e5) { S.countries = cache.list; renderChips(); return; }
   if (!S.countries) loadCountries();
 }
 

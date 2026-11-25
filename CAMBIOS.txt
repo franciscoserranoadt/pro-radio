@@ -1,2 +1,1 @@
-- Efectos al reproducir: Ondas, Aura o Barras (Ajustes → Efecto al reproducir)
-- Inicio se ajusta mejor en pantallas bajas (móvil en horizontal)
+- Arreglado: la pestaña Países salía vacía al volver a abrir la app
