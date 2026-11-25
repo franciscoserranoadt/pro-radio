@@ -1,2 +1,1 @@
-- Nueva pestaña «Canciones»: guarda la canción que suena y búscala en Spotify o YouTube
-- Modo noche: la pantalla se oscurece sola al anochecer (Ajustes → Modo noche)
+- Temas de colores: 8 estilos para elegir en Ajustes → Tema de colores

@@ -78,7 +78,7 @@ var P = {
 };
 function ic(name, size, color) {
   size = size || 22;
-  return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="none" stroke="' + (color || 'currentColor') +
+  return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="none" style="stroke:' + (color || 'currentColor') +
     '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + (P[name] || '') + '</svg>';
 }
 function iconize(root) {
@@ -693,6 +693,7 @@ function act(el, long, ev) {
     case 'qgo': doSearch($('q').value); break;
     case 'sopt': { var o = sheetActs[+v]; closeSheet(); if (o) o.f(); break; }
     case 'sclose': closeSheet(); break;
+    case 'theme': S.theme = v; setPref('theme', v); applyTheme(); renderThemes(); toast('Tema: ' + THEMES[v].n); break;
     case 'savesong': saveSong(); break;
     case 'spotify': openSong(+v, 'sp'); break;
     case 'youtube': openSong(+v, 'yt'); break;
@@ -926,6 +927,37 @@ function applyNight() {
   if (A && A.setDim) A.setDim(on);
 }
 
+
+/* ---------- Temas de colores ---------- */
+var THEMES = {
+  neon:    { n: 'Neón',      a1: '#3ee7ff', a2: '#b04dff', bg: '#0c0f2e', g1: '#2b2273', g2: '#3a1561', panel: '#1a1d4a' },
+  hielo:   { n: 'Azul hielo', a1: '#6cc4ff', a2: '#4d6bff', bg: '#08101f', g1: '#12305e', g2: '#1a2160', panel: '#14213f' },
+  bosque:  { n: 'Esmeralda', a1: '#5cffb0', a2: '#17b4d8', bg: '#06151a', g1: '#0d3a35', g2: '#0b2a45', panel: '#10302f' },
+  sunset:  { n: 'Atardecer', a1: '#ffb347', a2: '#ff4f8b', bg: '#150b1c', g1: '#4a1b3d', g2: '#5a2a12', panel: '#2c1530' },
+  rojo:    { n: 'Deportivo', a1: '#ff5a4d', a2: '#ff9a3c', bg: '#110a0b', g1: '#3d1015', g2: '#2e1a0b', panel: '#2a1517' },
+  oro:     { n: 'Oro',       a1: '#ffd36b', a2: '#ff9100', bg: '#110f09', g1: '#3a2f12', g2: '#2c1b08', panel: '#29230f' },
+  rosa:    { n: 'Rosa',      a1: '#ff7ad9', a2: '#9b5cff', bg: '#140a1a', g1: '#4a1749', g2: '#2a1460', panel: '#2a1336' },
+  grafito: { n: 'Grafito',   a1: '#e6e9f5', a2: '#8a93b8', bg: '#0d0e12', g1: '#272a33', g2: '#1c1e26', panel: '#1f222b' }
+};
+S.theme = pref('theme', 'neon');
+if (!THEMES[S.theme]) S.theme = 'neon';
+function hexRgb(h) { var n = parseInt(h.slice(1), 16); return ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255); }
+function applyTheme() {
+  var t = THEMES[S.theme], st = document.documentElement.style;
+  st.setProperty('--a1', t.a1); st.setProperty('--a2', t.a2);
+  st.setProperty('--a1rgb', hexRgb(t.a1)); st.setProperty('--a2rgb', hexRgb(t.a2));
+  st.setProperty('--bg', t.bg); st.setProperty('--g1', t.g1); st.setProperty('--g2', t.g2); st.setProperty('--panel', t.panel);
+}
+function renderThemes() {
+  var h = '';
+  Object.keys(THEMES).forEach(function (k) {
+    var t = THEMES[k];
+    h += '<span class="th' + (S.theme === k ? ' on' : '') + '" data-a="theme" data-v="' + k + '" style="background:linear-gradient(135deg,' + t.a1 + ' 0%,' + t.a1 + ' 45%,' + t.a2 + ' 55%,' + t.a2 + ' 100%)"></span>';
+  });
+  $('themes').innerHTML = h;
+  $('themeName').textContent = THEMES[S.theme].n;
+}
+
 /* ---------- Llamadas desde la parte nativa ---------- */
 window.PR = {
   onState: function (s) {
@@ -965,6 +997,7 @@ function init() {
   var sws = document.querySelectorAll('.sw[data-k]');
   for (var j = 0; j < sws.length; j++) sws[j].setAttribute('data-a', 'sw');
   $('q').addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.keyCode === 13) doSearch(this.value); });
+  applyTheme(); renderThemes();
   $('sheet').addEventListener('click', function (e) { if (e.target === this) closeSheet(); });
 
   if (A && A.lastQueue) { try { S.queue = JSON.parse(A.lastQueue()) || []; } catch (e) {} }

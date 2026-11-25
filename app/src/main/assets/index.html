@@ -9,7 +9,7 @@
  <div class="ring" style="width:500px;height:500px;right:-160px;bottom:-200px"></div>
 
  <div class="top">
-  <div class="logo"><svg width="34" height="34" viewBox="0 0 24 24"><defs><linearGradient id="lgr" x1="0" x2="1"><stop offset="0" stop-color="#3ee7ff"/><stop offset="1" stop-color="#d25cff"/></linearGradient></defs><circle cx="12" cy="12" r="2.6" fill="url(#lgr)"/><path d="M7.8 7.8a6 6 0 0 0 0 8.4M16.2 7.8a6 6 0 0 1 0 8.4M5 5a10 10 0 0 0 0 14M19 5a10 10 0 0 1 0 14" stroke="url(#lgr)" stroke-width="2" fill="none" stroke-linecap="round"/></svg><b>PRO RADIO</b></div>
+  <div class="logo"><svg width="34" height="34" viewBox="0 0 24 24"><defs><linearGradient id="lgr" x1="0" x2="1"><stop offset="0" style="stop-color:var(--a1)"/><stop offset="1" style="stop-color:var(--a2)"/></linearGradient></defs><circle cx="12" cy="12" r="2.6" fill="url(#lgr)"/><path d="M7.8 7.8a6 6 0 0 0 0 8.4M16.2 7.8a6 6 0 0 1 0 8.4M5 5a10 10 0 0 0 0 14M19 5a10 10 0 0 1 0 14" stroke="url(#lgr)" stroke-width="2" fill="none" stroke-linecap="round"/></svg><b>PRO RADIO</b></div>
   <div class="tab" data-t="home"><i data-i="radio"></i>Inicio</div>
   <div class="tab" data-t="mem"><i data-i="star"></i>Memorias</div>
   <div class="tab" data-t="songs"><i data-i="music"></i>Canciones</div>
@@ -115,7 +115,7 @@
      <div class="km"><span class="key">◄◄</span><span>Anterior<small id="kPrev">Memoria anterior</small></span></div>
      <div class="km"><span class="key">▶</span><span>Play con la app cerrada<small>Vuelve la última emisora</small></span></div>
     </div>
-    <div class="detect"><i data-i="wheel" data-s="40" data-c="#3ee7ff"></i><div><div class="dt">Prueba de botones</div><div class="muted" id="keyOut">Pulsa un botón del volante con esta pantalla abierta…</div></div></div>
+    <div class="detect"><i data-i="wheel" data-s="40" data-c="var(--a1)"></i><div><div class="dt">Prueba de botones</div><div class="muted" id="keyOut">Pulsa un botón del volante con esta pantalla abierta…</div></div></div>
     <div class="sync" id="syncBox"></div>
    </div>
    <div class="card set">
@@ -125,6 +125,7 @@
     <div class="tg"><span>Seguir sonando en segundo plano<small>Si lo apagas, la radio se para al salir de la app</small></span><div class="sw" data-k="background"></div></div>
     <div class="tg"><span>Reconectar si se corta la señal<small>Túneles y zonas sin cobertura</small></span><div class="sw" data-k="reconnect"></div></div>
     <div class="tg"><span>Clima y temperatura exterior<small>Por ubicación GPS · se actualiza cada 15 min</small></span><div class="sw" data-k="weather"></div></div>
+    <div class="tg"><span>Tema de colores<small id="themeName">Neón</small></span><div class="themes" id="themes"></div></div>
     <div class="tg nob"><span>Modo noche<small>Oscurece la pantalla al anochecer</small></span><div class="seg" id="nightSeg"><i data-v="auto">Auto</i><i data-v="on">Siempre</i><i data-v="off">No</i></div></div>
     <div class="upd" id="updBtn">🔄 Buscar actualización</div>
     <div class="ver" id="ver">Pro Radio · catálogo Radio Browser · clima Open-Meteo</div>
