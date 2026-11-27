@@ -94,6 +94,7 @@ class MainActivity : Activity() {
             }
         }
         web.addJavascriptInterface(Bridge(), "Android")
+        web.addJavascriptInterface(ProSync.Js(this, web), "ProSync")
         web.loadUrl("file:///android_asset/index.html")
         setContentView(web)
 

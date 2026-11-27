@@ -18,6 +18,14 @@
         </intent>
     </queries>
 
+    <!-- Las demás apps Pro, para pasarles el Código Pro -->
+    <queries>
+        <package android:name="com.fserrano.promaps" />
+        <package android:name="es.proinicio.app" />
+        <package android:name="es.progaraje.app" />
+        <package android:name="es.proobd.app" />
+    </queries>
+
     <application
         android:allowBackup="true"
         android:hardwareAccelerated="true"
@@ -66,6 +74,16 @@
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.QUICKBOOT_POWERON" />
                 <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Código Pro: recibe el código de vinculación de las demás apps Pro -->
+        <receiver
+            android:name=".SyncReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="es.pro.SYNC_CODE" />
+                <action android:name="es.pro.SYNC_ASK" />
             </intent-filter>
         </receiver>
     </application>

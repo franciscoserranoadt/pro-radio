@@ -713,170 +713,47 @@ function act(el, long, ev) {
       if (nv) { S.night = nv; setPref('night', nv); renderSettings(); applyNight(); }
       break;
     }
-    case 'synew': syncCreate(); break;
-    case 'syjoinsheet': joinSheet(); break;
-    case 'syjoin': syncJoin($('syIn') ? $('syIn').value : ''); break;
-    case 'synow': toast('Sincronizando…'); syncPull(); break;
-    case 'syoff': syncOff(); break;
     case 'upd': if (A && A.checkUpdate) A.checkUpdate(); else toast('Solo disponible en la app'); break;
   }
 }
 
-/* ---------- Sincronización móvil ⇄ coche ----------
-   Funciona igual que Pro Maps: canal privado en ntfy.sh (gratis, sin cuenta) cuyo nombre es el código.
-   ntfy guarda los mensajes 12 h, así que cada aparato vuelve a publicar sus memorias al abrirse
-   (y cada pocas horas) para que el otro las reciba siempre. Cada aparato guarda además su copia. */
-var NTFY = 'https://ntfy.sh/proradio-';
-var SY = LS.get('sync', null);
-if (SY && !SY.code) SY = null;
-var syncT = LS.get('syncT', 0), lastSync = 0, syncMsg = '', pushT = null, syncBusy = false;
-var httpN = 0, httpP = {};
-function http(method, url, body) {
-  return new Promise(function (res, rej) {
-    if (!A || !A.http) {
-      fetch(url, { method: method, body: body == null ? undefined : body })
-        .then(function (r) { return r.text().then(function (t) { res({ ok: r.ok, code: r.status, text: t, loc: '' }); }); })
-        .catch(rej);
-      return;
-    }
-    var id = 'h' + (++httpN);
-    httpP[id] = { res: res, rej: rej };
-    A.http(id, method, url, body == null ? null : body);
-    setTimeout(function () { if (httpP[id]) { delete httpP[id]; rej(new Error('tiempo agotado')); } }, 30000);
-  });
-}
-function topic() { return NTFY + SY.code.toLowerCase(); }
-function fmtCode(c) { return c.slice(0, 4) + '-' + c.slice(4); }
-function newCode() {
-  var abc = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789', c = '';
-  for (var k = 0; k < 8; k++) c += abc.charAt(Math.floor(Math.random() * abc.length));
-  return c;
-}
+/* ---------- Sincronización móvil ⇄ coche (Código Pro, ver prosync.js) ----------
+   Un solo código para todas las apps Pro. Memorias y favoritas iguales en los dos aparatos:
+   gana el último cambio y, al vincular, se juntan (mandan las del otro aparato y los huecos
+   libres se rellenan con las de este). Los datos viajan cifrados por ntfy.sh. */
+(function migrar() {
+  var old = LS.get('sync', null), t0 = LS.get('syncT', 0);
+  try { if (t0 && !localStorage.getItem('ps_t_radio')) localStorage.setItem('ps_t_radio', String(t0)); } catch (e) {}
+  if (old && old.code && window.PS) { PS.legacy(old.code, 1); LS.set('sync', null); }
+})();
 function hasData(mem, favs) { return (mem || []).some(function (x) { return !!x; }) || (favs || []).length > 0; }
 function slim(st) { return st ? { id: st.id, name: st.name, url: st.url, fav: st.fav || '', hp: st.hp || '', cc: st.cc || '', tags: st.tags || '' } : null; }
-function localChanged() {
-  syncT = Date.now(); LS.set('syncT', syncT);
-  if (!SY) return;
-  clearTimeout(pushT); pushT = setTimeout(syncPush, 2500);
-}
 function fixMem(m) { m = (m || []).slice(0, 30); while (m.length < 30) m.push(null); return m; }
+function localChanged() { if (window.PS) PS.changed('radio', 2500); }
 function applyRemote(d, msg) {
   S.mem = fixMem(d.mem); S.favs = d.favs || [];
   LS.set('mem', S.mem); LS.set('favs', S.favs);
-  syncT = d.t || Date.now(); LS.set('syncT', syncT);
   if (S.chip === 'fav') { S.list = S.favs.slice(); renderList(); } else updateRowHearts();
   syncQueueOrder();
   renderNow();
   if (msg) toast(msg);
 }
-/* Publica las memorias en trozos (ntfy admite mensajes pequeños). */
-function syncPush() {
-  if (!SY) return Promise.resolve();
-  if (!syncT) { syncT = Date.now(); LS.set('syncT', syncT); }
-  var data = JSON.stringify({ mem: S.mem.map(slim), favs: S.favs.map(slim) });
-  var size = 1500, n = Math.ceil(data.length / size), t = syncT, chain = Promise.resolve(true);
-  for (var i = 0; i < n; i++) (function (i) {
-    chain = chain.then(function (ok) {
-      if (!ok) return false;
-      var msg = JSON.stringify({ app: 'proradio', t: t, i: i, n: n, d: data.slice(i * size, (i + 1) * size) });
-      return http('POST', topic(), msg).then(function (r) { if (!r.ok) syncMsg = 'No se pudo enviar (error ' + r.code + ')'; return r.ok; });
-    });
-  })(i);
-  return chain.then(function (ok) {
-    if (ok) { lastSync = Date.now(); syncMsg = ''; LS.set('pubT', Date.now()); }
-    renderSync(); return ok;
-  }).catch(function () { syncMsg = 'Sin conexión: se enviará más tarde'; renderSync(); return false; });
-}
-/* Lee el canal y devuelve la versión completa más reciente {t, mem, favs}, o null. */
-function readRemote() {
-  return http('GET', topic() + '/json?poll=1&since=12h').then(function (r) {
-    if (!r.ok) throw new Error('error ' + r.code);
-    var parts = {};
-    (r.text || '').split('\n').forEach(function (line) {
-      try {
-        var m = JSON.parse(line); if (m.event !== 'message') return;
-        var o = JSON.parse(m.message); if (o.app !== 'proradio') return;
-        (parts[o.t] = parts[o.t] || { n: o.n, got: {} }).got[o.i] = o.d;
-      } catch (e) {}
-    });
-    var best = null;
-    Object.keys(parts).map(Number).sort(function (a, b) { return b - a; }).some(function (t) {
-      var p = parts[t], txt = '';
-      for (var k = 0; k < p.n; k++) { if (p.got[k] == null) return false; txt += p.got[k]; }
-      try { var d = JSON.parse(txt); d.t = t; best = d; return true; } catch (e) { return false; }
-    });
-    return best;
-  });
-}
-function syncPull() {
-  if (!SY || syncBusy) return Promise.resolve();
-  syncBusy = true;
-  return readRemote().then(function (d) {
-    syncBusy = false;
-    if (d && d.t > syncT) applyRemote(d, '📲 Memorias actualizadas desde el otro aparato');
-    else if (!d || d.t < syncT || Date.now() - LS.get('pubT', 0) > 6 * 3600e3) { syncPush(); return; }
-    lastSync = Date.now(); syncMsg = ''; renderSync();
-  }).catch(function (e) { syncBusy = false; syncMsg = 'Sin conexión (' + e.message + ')'; renderSync(); });
-}
-function syncCreate() {
-  SY = { code: newCode() }; LS.set('sync', SY);
-  toast('Creando código…');
-  syncPush().then(function (ok) {
-    if (ok) toast('Código creado: ' + fmtCode(SY.code));
-    else toast('Código creado, pero aún no se pudo enviar: ' + (syncMsg || 'sin conexión'));
-  });
-  renderSync();
-}
-function syncJoin(raw) {
-  var code = (raw || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-  if (code.length !== 8) { toast('El código tiene 8 letras o números'); return; }
-  closeSheet(); toast('Buscando el otro aparato…');
-  var prev = SY;
-  SY = { code: code };
-  readRemote().then(function (d) {
-    if (!d) { SY = prev; toast('Código no encontrado. Abre Pro Radio en el otro aparato y vuelve a probar.'); return; }
-    LS.set('sync', SY);
-    // Se juntan: manda lo del otro aparato; los huecos libres se rellenan con lo de este.
-    var mem = fixMem(d.mem), local = S.mem;
-    for (var k = 0; k < 30; k++) if (!mem[k] && local[k] && idxOf(mem, local[k].id) < 0) mem[k] = local[k];
-    var favs = (d.favs || []).slice();
-    S.favs.forEach(function (f) { if (idxOf(favs, f.id) < 0) favs.push(f); });
-    var added = hasData(local, S.favs);
-    applyRemote({ mem: mem, favs: favs, t: added ? Date.now() : d.t }, added ? '✅ Vinculado: memorias juntadas con el otro aparato' : '✅ Vinculado');
-    if (added) syncPush();
-    lastSync = Date.now(); renderSync();
-  }).catch(function (e) { SY = prev; toast('No se pudo conectar (' + e.message + '). Inténtalo de nuevo.'); });
-}
-function joinSheet() {
-  sheetActs = [];
-  $('sTitle').textContent = 'Escribe el código del otro aparato';
-  $('sBtns').innerHTML = '<input id="syIn" class="syin" maxlength="9" placeholder="K7PQ-M2XD" autocomplete="off" autocapitalize="characters">' +
-    '<div class="sopt pri" data-a="syjoin">Vincular</div><div class="sopt" data-a="sclose">Cancelar</div>';
-  $('sheet').classList.add('show', 'top');
-  setTimeout(function () { var i = $('syIn'); if (i) i.focus(); }, 200);
-}
-function syncOff() {
-  sheet('¿Desvincular este aparato?', [{ t: 'Sí, desvincular', c: 'dng', f: function () {
-    SY = null; LS.set('sync', null); renderSync(); toast('Desvinculado. Tus memorias se quedan en este aparato.');
-  } }]);
-}
-function ago(t) {
-  var s = Math.round((Date.now() - t) / 1000);
-  if (s < 60) return 'hace un momento';
-  if (s < 3600) return 'hace ' + Math.round(s / 60) + ' min';
-  return 'hace ' + Math.round(s / 3600) + ' h';
-}
+if (window.PS) PS.register('radio', {
+  get: function () { return { mem: fixMem(S.mem).map(slim), favs: (S.favs || []).map(slim) }; },
+  apply: function (d) { applyRemote(d, '📲 Memorias actualizadas desde el otro aparato'); },
+  join: function (local, remote) {
+    var mem = fixMem(remote.mem), lm = fixMem(local.mem);
+    for (var k = 0; k < 30; k++) if (!mem[k] && lm[k] && idxOf(mem, lm[k].id) < 0) mem[k] = lm[k];
+    var favs = (remote.favs || []).slice();
+    (local.favs || []).forEach(function (f) { if (idxOf(favs, f.id) < 0) favs.push(f); });
+    return { mem: mem, favs: favs };
+  }
+});
+function syncPull() { if (window.PS) PS.resume(); }
 function renderSync() {
   var b = $('syncBox'); if (!b) return;
-  if (!SY) {
-    b.innerHTML = '<div class="syh">📲 Sincronizar móvil y coche</div><div class="muted">Las memorias y favoritas serán iguales en los dos aparatos.</div>' +
-      '<div class="sybtns"><div class="sybtn pri" data-a="synew">Crear código</div><div class="sybtn" data-a="syjoinsheet">Tengo un código</div></div>';
-  } else {
-    b.innerHTML = '<div class="syh">📲 Vinculado · código <span class="code">' + fmtCode(SY.code) + '</span></div><div class="muted">' +
-      esc(syncMsg || (lastSync ? 'Sincronizado ' + ago(lastSync) : 'Sincronizando…')) +
-      ' · En el otro aparato: Ajustes → Tengo un código.</div>' +
-      '<div class="sybtns"><div class="sybtn" data-a="synow">🔄 Sincronizar ahora</div><div class="sybtn dng" data-a="syoff">Desvincular</div></div>';
-  }
+  if (!window.PS) { b.innerHTML = ''; return; }
+  if (!b.querySelector('.psx')) { b.innerHTML = ''; b.appendChild(PS.box({ toast: toast, what: 'las memorias (hasta 30) y las favoritas. Las canciones guardadas, el tema y los ajustes se quedan en cada aparato.' })); }
 }
 
 
@@ -1045,8 +922,6 @@ function init() {
   setInterval(function () { lastWx = Date.now(); weather(); }, 15 * 60000);
   setTimeout(loadCountriesQuiet, 1500);
   renderSync();
-  if (SY) setTimeout(syncPull, 1200);
-  setInterval(function () { if (SY) syncPull(); if (S.tab === 'set') renderSync(); }, 60000);
 }
 function loadCountriesQuiet() {
   var cache = LS.get('countries', null);

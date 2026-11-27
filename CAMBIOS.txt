@@ -1,1 +1,3 @@
-- Ahora se instala también en pantallas con Android 6, 7, 8 y 9 (arreglado «error al analizar el paquete»)
+Nuevo «Código Pro»: un solo código para vincular el móvil y el coche en TODAS las apps Pro (Maps, Radio, Inicio, Garaje y OBD). Lo pones una vez en cualquier app Pro y las demás se vinculan solas.
+Si ya tenías Pro Radio o Pro Maps vinculadas, no tienes que hacer nada: se usa tu código de siempre.
+Ahora las memorias y favoritas viajan cifradas: solo tus aparatos pueden leerlas.
